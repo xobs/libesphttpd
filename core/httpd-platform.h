@@ -6,7 +6,10 @@
 int httpdPlatSendData(ConnTypePtr conn, char *buff, int len);
 void httpdPlatDisconnect(ConnTypePtr conn);
 void httpdPlatDisableTimeout(ConnTypePtr conn);
-void httpdPlatInit(int port, int maxConnCt);
+
+/* NOTE: listenAddress is in network byte order */
+void httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress);
+
 void httpdPlatLock();
 void httpdPlatUnlock();
 

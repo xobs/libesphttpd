@@ -77,6 +77,10 @@ void httpdRedirect(HttpdConnData *conn, char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
 void httpdInit(HttpdBuiltInUrl *fixedUrls, int port);
+
+/* NOTE: listenAddress is in network byte order */
+void httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress);
+
 const char *httpdGetMimetype(char *url);
 void httdSetTransferMode(HttpdConnData *conn, int mode);
 void httpdStartResponse(HttpdConnData *conn, int code);

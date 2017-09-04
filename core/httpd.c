@@ -833,8 +833,11 @@ int ICACHE_FLASH_ATTR httpdConnectCb(ConnTypePtr conn, char *remIp, int remPort)
 	return 1;
 }
 
+
+#define INADDR_ANY 0
+
 //Httpd initialization routine. Call this to kick off webserver functionality.
-void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
+void ICACHE_FLASH_ATTR httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress) {
 	int i;
 
 	for (i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
@@ -842,6 +845,12 @@ void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
 	}
 	builtInUrls=fixedUrls;
 
-	httpdPlatInit(port, HTTPD_MAX_CONNECTIONS);
+	httpdPlatInit(port, HTTPD_MAX_CONNECTIONS, listenAddress);
 	httpd_printf("Httpd init\n");
 }
+
+void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
+	httpdInitEx(fixedUrls, port, INADDR_ANY);
+	httpd_printf("Httpd init\n");
+}
+

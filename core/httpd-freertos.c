@@ -29,6 +29,7 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 
 static int httpPort;
 static int httpMaxConnCt;
+static struct sockaddr_in httpListenAddress;
 static xQueueHandle httpdMux;
 
 
@@ -90,7 +91,7 @@ static void platHttpServerTask(void *pvParameters) {
 	/* Construct local address structure */
 	memset(&server_addr, 0, sizeof(server_addr)); /* Zero out structure */
 	server_addr.sin_family = AF_INET;			/* Internet address family */
-	server_addr.sin_addr.s_addr = INADDR_ANY;   /* Any incoming interface */
+	server_addr.sin_addr.s_addr = httpListenAddress.sin_addr.s_addr;
 	server_addr.sin_len = sizeof(server_addr);  
 	server_addr.sin_port = htons(httpPort); /* Local port */
 
@@ -280,15 +281,15 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 
 
 //Initialize listening socket, do general initialization
-void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt) {
+void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress) {
 	httpPort=port;
 	httpMaxConnCt=maxConnCt;
+	httpListenAddress.sin_addr.s_addr = listenAddress;
 #ifdef ESP32
 	xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
 #else
 	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
 #endif
 }
-
 
 #endif
