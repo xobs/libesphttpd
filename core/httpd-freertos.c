@@ -66,6 +66,12 @@ void ICACHE_FLASH_ATTR httpdPlatUnlock() {
 	xSemaphoreGiveRecursive(httpdMux);
 }
 
+void closeConnection(RtosConnType *rconn)
+{
+	httpdDisconCb(rconn, rconn->ip, rconn->port);
+	close(rconn->fd);
+	rconn->fd=-1;
+}
 
 #define RECV_BUF_SIZE 2048
 static void platHttpServerTask(void *pvParameters) {
@@ -206,9 +212,7 @@ static void platHttpServerTask(void *pvParameters) {
 					rconn[x].needWriteDoneNotif=0; //Do this first, httpdSentCb may write something making this 1 again.
 					if (rconn[x].needsClose) {
 						//Do callback and close fd.
-						httpdDisconCb(&rconn[x], rconn[x].ip, rconn[x].port);
-						close(rconn[x].fd);
-						rconn[x].fd=-1;
+						closeConnection(&rconn[x]);
 					} else {
 						httpdSentCb(&rconn[x], rconn[x].ip, rconn[x].port);
 					}
@@ -218,9 +222,7 @@ static void platHttpServerTask(void *pvParameters) {
 					precvbuf=(char*)malloc(RECV_BUF_SIZE);
 					if (precvbuf==NULL) {
 						httpd_printf("platHttpServerTask: memory exhausted!\n");
-						httpdDisconCb(&rconn[x], rconn[x].ip, rconn[x].port);
-						close(rconn[x].fd);
-						rconn[x].fd=-1;
+						closeConnection(&rconn[x]);
 					}
 					ret=recv(rconn[x].fd, precvbuf, RECV_BUF_SIZE,0);
 					if (ret > 0) {
@@ -228,9 +230,7 @@ static void platHttpServerTask(void *pvParameters) {
 						httpdRecvCb(&rconn[x], rconn[x].ip, rconn[x].port, precvbuf, ret);
 					} else {
 						//recv error,connection close
-						httpdDisconCb(&rconn[x], rconn[x].ip, rconn[x].port);
-						close(rconn[x].fd);
-						rconn[x].fd=-1;
+						closeConnection(&rconn[x]);
 					}
 					if (precvbuf) free(precvbuf);
 				}
