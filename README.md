@@ -12,6 +12,14 @@ as well as a [FreeRTOS-based](http://git.spritesserver.nl/esphttpd-freertos.git/
 how to use libesphttpd to serve files from an ESP8266/ESP32 and illustrate a way to make an user associate
 the ESP8266/ESP32 with an access point from a standard webbrowser on a PC or mobile phone.
 
+# SSL Support
+
+Libesphttpd supports https under FreeRTOS via openssl/mbedtls.
+
+Enable 'ESPHTTPD_SSL_SUPPORT' during project configuration. Note the instructions on including the CA
+certificate and private key in your project build as the build will fail without the appropriately
+named files and SSL initialization will fail if the files are not in the correct format.
+
 # Programming guide
 
 Programming libesphttpd will require some knowledge of HTTP. Knowledge of the exact RFCs isn't needed,

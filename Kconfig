@@ -26,4 +26,24 @@ config ESPHTTPD_USEYUICOMPRESSOR
 	help
 		Compress JS and CSS files with the YIU compressor. Needs YUI installed.
 
+config ESPHTTPD_SSL_SUPPORT
+	bool "Enable SSL for all connections"
+	default n
+	help
+		Enabling this forces all connections to be https.
+
+		SSL servers require certificates. Steps to use:
+		- Place a 'cacert.der' and 'prvtkey.der' files in your app directory.
+
+		- To create self certified certificates:
+			$ openssl req -sha256 -newkey rsa:4096 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
+
+		- To generate .der certificates/keys from .pem certificates/keys:
+			$ openssl x509 -outform der -in certificate.pem -out certificate.der
+			$ openssl rsa -outform der -in key.pem -out key.der
+
+		- Create a 'component.mk' file in your app directory and add these lines to it:
+			COMPONENT_EMBED_TXTFILES := cacert.der
+			COMPONENT_EMBED_TXTFILES += prvtkey.der
+
 endmenu
