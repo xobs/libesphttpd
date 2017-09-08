@@ -6,7 +6,6 @@
 HTTP auth implementation. Only does basic authentication for now.
 */
 
-
 #include <libesphttpd/esp8266.h>
 #include "libesphttpd/auth.h"
 #include "base64.h"
