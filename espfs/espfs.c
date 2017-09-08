@@ -1,18 +1,12 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
 This is a simple read-only implementation of a file system. It uses a block of data coming from the
 mkespfsimg tool, and can use that block to do abstracted operations on the files that are in there.
 It's written for use with httpd, but doesn't need to be used as such.
 */
-
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return. 
- * ----------------------------------------------------------------------------
- */
-
 
 //These routines can also be tested by comping them in with the espfstest tool. This
 //simplifies debugging, but needs some slightly different headers. The #ifdef takes

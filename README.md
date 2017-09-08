@@ -325,3 +325,17 @@ This will result in a page stating *Welcome, John Doe, to the ESP8266/ESP32 webs
 ## Websocket functionality
 
 ToDo: document this
+
+# Licensing
+
+libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license by Jeroen Domburg
+but was re-licensed with the blessing of most of the projects contributors.
+
+The topic of licenses can be controversial. The original license was more free in that it allowed users to use the code
+in any way, including relicensing it to any license they chose. The MPLv2 restricts freedom in that it requires
+modifications to be given back to the community. This license establishes the agreement that in exchange for using
+this great library that users are required to give back their changes to let others benefit.
+
+While the 'Beer-ware' license text was removed to avoid license confusion the authors of this great library,
+especially Jeroen, deserve a beer. If you appreciate the library and you meet them in person some day please consider
+buying them a beer to say thanks!
