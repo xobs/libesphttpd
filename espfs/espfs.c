@@ -90,12 +90,12 @@ void ICACHE_FLASH_ATTR readFlashAligned(uint32 *dst, uint32_t pos, int len) {
 
 EspFsInitResult ICACHE_FLASH_ATTR espFsInit(void *flashAddress) {
 #ifndef ESP32
-	if((uint32_t)flashAddress > 0x40000000) {
-		flashAddress = (void*)((uint32_t)flashAddress-FLASH_BASE_ADDR);
+	if((uintptr_t)flashAddress > 0x40000000) {
+		flashAddress = (void*)((uintptr_t)flashAddress-FLASH_BASE_ADDR);
 	}
 
 	// base address must be aligned to 4 bytes
-	if (((int)flashAddress & 3) != 0) {
+	if (((uintptr_t)flashAddress & 3) != 0) {
 		return ESPFS_INIT_RESULT_BAD_ALIGN;
 	}
 #endif
@@ -144,7 +144,7 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 	while(1) {
 		hpos=p;
 		//Grab the next file header.
-		readFlashAligned((uint32*)&h, (uint32)p, sizeof(EspFsHeader));
+		readFlashAligned((uintptr_t*)&h, (uintptr_t)p, sizeof(EspFsHeader));
 
 		if (h.magic!=ESPFS_MAGIC) {
 			httpd_printf("Magic mismatch. EspFS image broken.\n");
@@ -155,9 +155,9 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 			return NULL;
 		}
 		//Grab the name of the file.
-		p+=sizeof(EspFsHeader); 
-		readFlashAligned((uint32*)&namebuf, (uint32)p, sizeof(namebuf));
-//		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n", 
+		p+=sizeof(EspFsHeader);
+		readFlashAligned((uint32_t*)&namebuf, (uintptr_t)p, sizeof(namebuf));
+//		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n",
 //				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
 		if (strcmp(namebuf, fileName)==0) {
 			//Yay, this is the file we need!
