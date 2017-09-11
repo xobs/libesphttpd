@@ -25,7 +25,7 @@ int ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 	char buff[1024];
 	char acceptEncodingBuffer[64];
 	int isGzip;
-	
+
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		espFsClose(file);
@@ -190,4 +190,3 @@ int ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 }
-

@@ -87,7 +87,7 @@ static int ICACHE_FLASH_ATTR sendFrameHead(Websock *ws, int opcode, int len) {
 	buf[i++]=opcode;
 	if (len>65535) {
 		buf[i++]=127;
-		buf[i++]=0; buf[i++]=0; buf[i++]=0; buf[i++]=0; 
+		buf[i++]=0; buf[i++]=0; buf[i++]=0; buf[i++]=0;
 		buf[i++]=len>>24;
 		buf[i++]=len>>16;
 		buf[i++]=len>>8;
@@ -191,7 +191,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 			//Was a payload byte.
 			wasHeaderByte=0;
 		}
-		
+
 		if (ws->priv->wsStatus==ST_PAYLOAD && wasHeaderByte) {
 			//We finished parsing the header, but i still is on the last header byte. Move one forward so
 			//the payload code works as usual.
@@ -200,7 +200,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 		//Also finish parsing frame if we haven't received any payload bytes yet, but the length of the frame
 		//is zero.
 		if (ws->priv->wsStatus==ST_PAYLOAD) {
-			//Okay, header is in; this is a data byte. We're going to process all the data bytes we have 
+			//Okay, header is in; this is a data byte. We're going to process all the data bytes we have
 			//received here at the same time; no more byte iterations till the end of this frame.
 			//First, unmask the data
 			sl=len-i;
@@ -222,7 +222,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 					if (!ws->priv->frameCont) sendFrameHead(ws, OPCODE_PONG|FLAG_FIN, ws->priv->fr.len);
 					if (sl>0) httpdSend(ws->conn, data+i, sl);
 				}
-			} else if ((ws->priv->fr.flags&OPCODE_MASK)==OPCODE_TEXT || 
+			} else if ((ws->priv->fr.flags&OPCODE_MASK)==OPCODE_TEXT ||
 						(ws->priv->fr.flags&OPCODE_MASK)==OPCODE_BINARY ||
 						(ws->priv->fr.flags&OPCODE_MASK)==OPCODE_CONTINUE) {
 				if (sl>ws->priv->fr.len) sl=ws->priv->fr.len;
@@ -283,7 +283,7 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 		}
 		return HTTPD_CGI_DONE;
 	}
-	
+
 	if (connData->cgiData==NULL) {
 //		httpd_printf("WS: First call\n");
 		//First call here. Check if client headers are OK, send server header.
@@ -343,11 +343,10 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_DONE;
 	}
-	
+
 	//Sending is done. Call the sent callback if we have one.
 	Websock *ws=(Websock*)connData->cgiData;
 	if (ws && ws->sentCb) ws->sentCb(ws);
 
 	return HTTPD_CGI_MORE;
 }
-

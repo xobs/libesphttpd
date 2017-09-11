@@ -204,7 +204,7 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 	int fdlen;
 #endif
 	if (fh==NULL) return 0;
-		
+
 	readFlashUnaligned((char*)&flen, (char*)&fh->header->fileLenComp, 4);
 	//Cache file length.
 	//Do stuff depending on the way the file is compressed.
@@ -278,6 +278,3 @@ void ICACHE_FLASH_ATTR espFsClose(EspFsFile *fh) {
 //	httpd_printf("Freed %p\n", fh);
 	free(fh);
 }
-
-
-

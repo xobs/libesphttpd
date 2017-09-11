@@ -77,7 +77,7 @@ const char ICACHE_FLASH_ATTR *httpdGetMimetype(char *url) {
 	char *ext=url+(strlen(url)-1);
 	while (ext!=url && *ext!='.') ext--;
 	if (*ext=='.') ext++;
-	
+
 	//ToDo: strcmp is case sensitive; we may want to do case-intensive matching here...
 	while (mimeTypes[i].ext!=NULL && strcmp(ext, mimeTypes[i].ext)!=0) i++;
 	return mimeTypes[i].mimetype;
@@ -157,7 +157,7 @@ int ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLe
 //Find a specific arg in a string of get- or post-data.
 //Line is the string of post/get-data, arg is the name of the value to find. The
 //zero-terminated result is written in buff, with at most buffLen bytes used. The
-//function returns the length of the result, or -1 if the value wasn't found. The 
+//function returns the length of the result, or -1 if the value wasn't found. The
 //returned string will be urldecoded already.
 int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLen) {
 	char *p, *e;
@@ -228,9 +228,9 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 	const char *connStr="Connection: close\r\n";
 	if (conn->priv->flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
 	if (conn->priv->flags&HFL_NOCONNECTIONSTR) connStr="";
-	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp8266-httpd/"HTTPDVER"\r\n%s", 
-			(conn->priv->flags&HFL_HTTP11)?1:0, 
-			code, 
+	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp8266-httpd/"HTTPDVER"\r\n%s",
+			(conn->priv->flags&HFL_HTTP11)?1:0,
+			code,
 			connStr);
 	httpdSend(conn, buff, l);
 }
@@ -542,7 +542,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 			httpd_printf("%s not found. 404!\n", conn->url);
 			conn->cgi=cgiNotFound;
 		}
-		
+
 		//Okay, we have a CGI function that matches the URL. See if it wants to handle the
 		//particular URL we're supposed to handle.
 		r=conn->cgi(conn);
@@ -571,7 +571,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 	int i;
 	char firstLine=0;
-	
+
 	if (strncmp(h, "GET ", 4)==0) {
 		conn->requestType = HTTPD_METHOD_GET;
 		firstLine=1;
@@ -586,7 +586,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 
 	if (firstLine) {
 		char *e;
-		
+
 		//Skip past the space after POST/GET
 		i=0;
 		while (h[i]!=' ') i++;
@@ -853,4 +853,3 @@ void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
 	httpdInitEx(fixedUrls, port, INADDR_ANY);
 	httpd_printf("Httpd init\n");
 }
-
