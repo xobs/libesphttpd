@@ -12,32 +12,50 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 /* Copyright 2017 Jeroen Domburg <git@j0h.nl> */
 /* Copyright 2017 Chris Morgan <chmorgan@gmail.com> */
 
-#ifdef FREERTOS
+#ifdef linux
+#include <libesphttpd/linux.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+#include <unistd.h>
 
-
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "libesphttpd/httpd.h"
 #include "libesphttpd/platform.h"
 #include "httpd-platform.h"
 
+#ifdef FREERTOS
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+#endif
 
+#ifndef linux
 #ifdef ESP32
 #include "lwip/sockets.h"
 #else
 #include "lwip/lwip/sockets.h"
 #endif
+#endif
 
 static int httpPort;
 static int httpMaxConnCt;
 static struct sockaddr_in httpListenAddress;
+#ifdef linux
+static pthread_mutex_t httpdMux;
+#else
 static xQueueHandle httpdMux;
+#endif
 
 #if CONFIG_ESPHTTPD_SSL_SUPPORT
 #include "openssl/ssl.h"
+#ifdef linux
+#include "openssl/err.h"
+#endif
 SSL_CTX *ctx;
 #endif
 
@@ -73,6 +91,16 @@ void httpdPlatDisableTimeout(ConnTypePtr conn) {
 	//Unimplemented for FreeRTOS
 }
 
+#ifdef linux
+//Set/clear global httpd lock.
+void ICACHE_FLASH_ATTR httpdPlatLock() {
+	pthread_mutex_lock(&httpdMux);
+}
+
+void ICACHE_FLASH_ATTR httpdPlatUnlock() {
+	pthread_mutex_unlock(&httpdMux);
+}
+#else
 //Set/clear global httpd lock.
 void ICACHE_FLASH_ATTR httpdPlatLock() {
 	xSemaphoreTakeRecursive(httpdMux, portMAX_DELAY);
@@ -81,6 +109,7 @@ void ICACHE_FLASH_ATTR httpdPlatLock() {
 void ICACHE_FLASH_ATTR httpdPlatUnlock() {
 	xSemaphoreGiveRecursive(httpdMux);
 }
+#endif
 
 void closeConnection(RtosConnType *rconn)
 {
@@ -138,6 +167,9 @@ static SSL_CTX* sslCreateContext()
 	httpd_printf("SSL server context setting ca certificate......\n");
 	ret = SSL_CTX_use_certificate_ASN1(ctx, cacert_der_bytes, cacert_der_start);
 	if (!ret) {
+#ifdef linux
+		ERR_print_errors_fp(stderr);
+#endif
 		httpd_printf("SSL_CTX_use_certificate_ASN1 failed error %d\n", ret);
 		goto failed2;
 	}
@@ -146,6 +178,9 @@ static SSL_CTX* sslCreateContext()
 	httpd_printf("SSL server context setting private key......\n");
 	ret = SSL_CTX_use_RSAPrivateKey_ASN1(ctx, prvtkey_der_start, prvtkey_der_bytes);
 	if (!ret) {
+#ifdef linux
+		ERR_print_errors_fp(stderr);
+#endif
 		httpd_printf("SSL_CTX_use_RSAPrivateKey_ASN1 failed error %d\n", ret);
 		goto failed2;
 	}
@@ -163,7 +198,11 @@ failed1:
 #endif
 
 #define RECV_BUF_SIZE 2048
+#ifdef linux
+static void* platHttpServerTask(void *pvParameters) {
+#else
 static void platHttpServerTask(void *pvParameters) {
+#endif
 	int32 listenfd;
 	int32 remotefd;
 	int32 len;
@@ -177,7 +216,11 @@ static void platHttpServerTask(void *pvParameters) {
 	struct sockaddr_in server_addr;
 	struct sockaddr_in remote_addr;
 
+#ifdef linux
+	pthread_mutex_init(&httpdMux, NULL);
+#else
 	httpdMux=xSemaphoreCreateRecursiveMutex();
+#endif
 
 	for (x=0; x<HTTPD_MAX_CONNECTIONS; x++) {
 		rconn[x].fd=-1;
@@ -187,7 +230,9 @@ static void platHttpServerTask(void *pvParameters) {
 	memset(&server_addr, 0, sizeof(server_addr)); /* Zero out structure */
 	server_addr.sin_family = AF_INET;			/* Internet address family */
 	server_addr.sin_addr.s_addr = httpListenAddress.sin_addr.s_addr;
+#ifndef linux
 	server_addr.sin_len = sizeof(server_addr);
+#endif
 	server_addr.sin_port = htons(httpPort); /* Local port */
 
 #if CONFIG_ESPHTTPD_SSL_SUPPORT
@@ -195,8 +240,11 @@ static void platHttpServerTask(void *pvParameters) {
 	if(!ctx)
 	{
 		httpd_printf("platHttpServerTask: failed to create ssl context\n");
-
+#ifdef linux
+		return NULL;
+#else
 		vTaskDelete(NULL);
+#endif
 	}
 #endif
 
@@ -256,7 +304,7 @@ static void platHttpServerTask(void *pvParameters) {
 		}
 
 		//polling all exist client handle,wait until readable/writable
-		ret = lwip_select(maxfdp+1, &readset, &writeset, NULL, NULL);//&timeout
+		ret = select(maxfdp+1, &readset, &writeset, NULL, NULL);//&timeout
 		printf("sel ret\n");
 		if(ret > 0){
 			//See if we need to accept a new connection
@@ -385,7 +433,86 @@ static void platHttpServerTask(void *pvParameters) {
 #endif
 }
 
+#ifdef linux
 
+#include <signal.h>
+#include <time.h>
+
+void platform_timer_handler (union sigval val)
+{
+	HttpdPlatTimerHandle handle = val.sival_ptr;
+
+	// call the callback
+	handle->callback(handle->callbackArg);
+
+	// stop the timer if we aren't autoreloading
+	if(!handle->autoReload)
+	{
+		httpdPlatTimerStop(handle);
+	}
+}
+
+HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx) {
+
+	struct sigevent event;
+	HttpdPlatTimerHandle handle = (HttpdPlatTimerHandle)malloc(sizeof(HttpdPlatTimer));
+
+	handle->autoReload = autoreload;
+	handle->callback = callback;
+	handle->timerPeriodMS = periodMs;
+	handle->callbackArg = ctx;
+
+	event.sigev_notify = SIGEV_THREAD;
+	event.sigev_notify_function = platform_timer_handler;
+	event.sigev_value.sival_ptr = handle;
+
+	int retval = timer_create(CLOCK_MONOTONIC, &event, &(handle->timer));
+	if(retval != 0)
+	{
+		httpd_printf("timer_create() failed retval %d\n", retval);
+	}
+
+	return handle;
+}
+
+void httpdPlatTimerStart(HttpdPlatTimerHandle handle) {
+	struct itimerspec new_value;
+	struct itimerspec old_value;
+	int seconds = handle->timerPeriodMS / 1000;
+	int nsec = ((handle->timerPeriodMS % 1000) * 1000000);
+	new_value.it_value.tv_sec = seconds;
+	new_value.it_value.tv_nsec = nsec;
+	new_value.it_interval.tv_sec = seconds;
+	new_value.it_interval.tv_nsec = nsec;
+	int retval = timer_settime(handle->timer, 0,
+							&new_value,
+							&old_value);
+
+	if(retval != 0)
+	{
+		httpd_printf("timer start timer_settime() failed retval %d\n", retval);
+	}
+}
+
+void httpdPlatTimerStop(HttpdPlatTimerHandle handle) {
+	struct itimerspec new_value;
+	struct itimerspec old_value;
+	memset(&new_value, 0, sizeof(struct itimerspec));
+	int retval = timer_settime(handle->timer, 0,
+							&new_value,
+							&old_value);
+
+	if(retval != 0)
+	{
+		httpd_printf("timer start timer_settime() failed retval %d\n", retval);
+	}
+}
+
+void httpdPlatTimerDelete(HttpdPlatTimerHandle handle) {
+	timer_delete(handle->timer);
+	free(handle);
+}
+#else
 HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx) {
 	TimerHandle_t ret;
 	ret=xTimerCreate(name, pdMS_TO_TICKS(periodMs), autoreload?pdTRUE:pdFALSE, ctx, callback);
@@ -403,18 +530,21 @@ void httpdPlatTimerStop(HttpdPlatTimerHandle timer) {
 void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 	xTimerDelete((TimerHandle_t)timer, 0);
 }
-
+#endif
 
 //Initialize listening socket, do general initialization
 void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress) {
 	httpPort=port;
 	httpMaxConnCt=maxConnCt;
 	httpListenAddress.sin_addr.s_addr = listenAddress;
+#ifdef linux
+	pthread_t thread;
+	pthread_create(&thread, NULL, platHttpServerTask, NULL);
+#else
 #ifdef ESP32
 	xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
 #else
 	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
 #endif
-}
-
 #endif
+}

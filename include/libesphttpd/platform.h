@@ -28,7 +28,33 @@ typedef TimerHandle_t HttpdPlatTimerHandle;
 #ifdef ESP32
 #define ICACHE_FLASH_ATTR
 #endif
-#else
+
+#elif linux
+
+#include <stdbool.h>
+typedef struct RtosConnType RtosConnType;
+typedef RtosConnType* ConnTypePtr;
+
+#define httpd_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
+
+#define vTaskDelay(milliseconds) usleep((milliseconds) * 1000)
+#define portTICK_RATE_MS 1
+
+typedef struct
+{
+	timer_t timer;
+	int timerPeriodMS;
+	bool autoReload;
+	void (*callback)(void* arg);
+	void* callbackArg;
+} HttpdPlatTimer;
+
+typedef HttpdPlatTimer* HttpdPlatTimerHandle;
+
+#define ICACHE_FLASH_ATTR
+#define ICACHE_RODATA_ATTR
+
+#else // no-os, map to os-specific versions that have to be defined
 
 #define printf(...) os_printf(__VA_ARGS__)
 #define sprintf(str, ...) os_sprintf(str, __VA_ARGS__)

@@ -4,7 +4,12 @@
 
 /* base64.c : base-64 / MIME encode/decode */
 /* PUBLIC DOMAIN - Jon Mayo - November 13, 2003 */
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "base64.h"
 
 static const int base64dec_tab[256] ICACHE_RODATA_ATTR={
@@ -110,4 +115,3 @@ int ICACHE_FLASH_ATTR __attribute__((weak)) base64_encode(size_t in_len, const u
 	out[io]=0;
 	return io;
 }
-

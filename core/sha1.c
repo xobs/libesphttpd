@@ -7,7 +7,12 @@
  */
 // gcc -Wall -DSHA1TEST -o sha1test sha1.c && ./sha1test
 
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include <stdint.h>
 #include <string.h>
 

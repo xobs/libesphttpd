@@ -12,6 +12,12 @@ It's written for use with httpd, but doesn't need to be used as such.
 //simplifies debugging, but needs some slightly different headers. The #ifdef takes
 //care of that.
 
+#ifdef linux
+
+#include <libesphttpd/linux.h>
+
+#else
+
 #if __ets__ || ESP_PLATFORM
 //esp build
 #include <libesphttpd/esp8266.h>
@@ -22,6 +28,8 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include <stdlib.h>
 #include <string.h>
 #define ICACHE_FLASH_ATTR
+#endif
+
 #endif
 
 #include "espfsformat.h"

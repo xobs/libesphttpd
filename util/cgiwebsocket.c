@@ -6,8 +6,12 @@
 Websocket support for esphttpd. Inspired by https://github.com/dangrie158/ESP-8266-WebSocket
 */
 
-
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "libesphttpd/httpd.h"
 #include "libesphttpd/sha1.h"
 #include "base64.h"

@@ -334,6 +334,19 @@ This will result in a page stating *Welcome, John Doe, to the ESP8266/ESP32 webs
 
 ToDo: document this
 
+# Linux support
+
+Lwip provides a POSIX interface that matches that of a Linux system. FreeRTOS primitives are also similiar
+to those provided under POSIX.
+
+Running	on a Linux system enables testing under a range of different conditions including different
+native pointer sizes (64bit vs.	32bit),	as well	as with	different compilers. These differences can
+help reveal portability issues.
+
+Linux tools such as valgrind can be used to check for memory leaks that would be much more difficult
+to detect on an	embedded platform. Valgrind and	other tools also provide ways of looking at application
+performance that go beyond what	is typically available in an embedded environment.
+
 # Licensing
 
 libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license by Jeroen Domburg

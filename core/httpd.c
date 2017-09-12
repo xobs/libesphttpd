@@ -6,7 +6,13 @@
 Esp8266 http server - core routines
 */
 
+
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "libesphttpd/httpd.h"
 #include "httpd-platform.h"
 
@@ -324,6 +330,9 @@ int ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 //the SoftAP interface. This should preclude clients connected to the STA interface
 //to be redirected to nowhere.
 int ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
+#ifdef linux
+	return HTTPD_CGI_NOTFOUND;
+#else
 #ifndef FREERTOS
 	uint32 *remadr;
 	struct ip_info apip;
@@ -339,6 +348,7 @@ int ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
 	}
 #else
 	return HTTPD_CGI_NOTFOUND;
+#endif
 #endif
 }
 

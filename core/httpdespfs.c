@@ -6,7 +6,12 @@
 Connector to let httpd use the espfs filesystem to serve the files in it.
 */
 
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "libesphttpd/httpdespfs.h"
 #include "libesphttpd/espfs.h"
 #include "espfsformat.h"

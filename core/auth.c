@@ -6,7 +6,12 @@
 HTTP auth implementation. Only does basic authentication for now.
 */
 
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
 #include <libesphttpd/esp8266.h>
+#endif
+
 #include "libesphttpd/auth.h"
 #include "base64.h"
 
@@ -52,4 +57,3 @@ int ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
 	//Okay, all done.
 	return HTTPD_CGI_DONE;
 }
-
