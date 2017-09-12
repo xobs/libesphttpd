@@ -214,6 +214,7 @@ static void platHttpServerTask(void *pvParameters) {
 		ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (ret != 0) {
 			httpd_printf("platHttpServerTask: failed to bind!\n");
+			perror("bind failure");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(ret != 0);
