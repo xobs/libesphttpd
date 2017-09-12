@@ -20,7 +20,7 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #include <unistd.h>
 
 #else
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #endif
 
 #include "libesphttpd/httpd.h"

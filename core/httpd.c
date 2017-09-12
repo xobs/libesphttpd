@@ -10,7 +10,7 @@ Esp8266 http server - core routines
 #ifdef linux
 #include <libesphttpd/linux.h>
 #else
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #endif
 
 #include "libesphttpd/httpd.h"

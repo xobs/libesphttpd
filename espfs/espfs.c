@@ -20,7 +20,7 @@ It's written for use with httpd, but doesn't need to be used as such.
 
 #if __ets__ || ESP_PLATFORM
 //esp build
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #else
 //Test build
 #include <stdio.h>

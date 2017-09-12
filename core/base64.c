@@ -7,7 +7,7 @@
 #ifdef linux
 #include <libesphttpd/linux.h>
 #else
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #endif
 
 #include "base64.h"

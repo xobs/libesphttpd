@@ -10,7 +10,7 @@ be used to send mobile phones, tablets etc which connect to the ESP in AP mode d
 the internal webserver.
 */
 
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #ifndef ESP32
 
 #ifdef FREERTOS

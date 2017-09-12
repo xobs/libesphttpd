@@ -9,7 +9,7 @@ Websocket support for esphttpd. Inspired by https://github.com/dangrie158/ESP-82
 #ifdef linux
 #include <libesphttpd/linux.h>
 #else
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #endif
 
 #include "libesphttpd/httpd.h"

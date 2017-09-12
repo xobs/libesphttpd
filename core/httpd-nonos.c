@@ -6,7 +6,7 @@
 ESP8266 web server - platform-dependent routines, nonos version
 */
 
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #include "libesphttpd/httpd.h"
 #include "libesphttpd/platform.h"
 #include "httpd-platform.h"

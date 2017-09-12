@@ -6,7 +6,7 @@
 Some flash handling cgi routines. Used for updating the ESPFS/OTA image.
 */
 
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 #include "libesphttpd/cgiflash.h"
 #include "libesphttpd/espfs.h"
 #include "libesphttpd/cgiflash.h"

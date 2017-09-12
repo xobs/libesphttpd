@@ -10,7 +10,7 @@
 #ifdef __ets__
 //esp build
 
-#include <libesphttpd/esp8266.h>
+#include <libesphttpd/esp.h>
 
 #endif
 
