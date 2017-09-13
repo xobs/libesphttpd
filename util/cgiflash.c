@@ -118,8 +118,10 @@ typedef struct __attribute__((packed)) {
 int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	CgiUploadFlashDef *def=(CgiUploadFlashDef*)connData->cgiArg;
 	UploadState *state=(UploadState *)connData->cgiData;
+#ifndef ESP32
 	int len;
 	char buff[128];
+#endif
 
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
