@@ -237,7 +237,7 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 	const char *connStr="Connection: close\r\n";
 	if (conn->priv->flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
 	if (conn->priv->flags&HFL_NOCONNECTIONSTR) connStr="";
-	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp8266-httpd/"HTTPDVER"\r\n%s",
+	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp-httpd/"HTTPDVER"\r\n%s",
 			(conn->priv->flags&HFL_HTTP11)?1:0,
 			code,
 			connStr);
