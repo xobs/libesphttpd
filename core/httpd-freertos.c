@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /*
-ESP8266 web server - platform-dependent routines, FreeRTOS version
+Platform-dependent routines, FreeRTOS version
 
 
 Thanks to my collague at Espressif for writing the foundations of this code.
