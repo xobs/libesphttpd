@@ -201,7 +201,7 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 		}
 		//We don't need this file. Skip name and file
 		p+=h.nameLen+h.fileLenComp;
-		if ((int)p&3) p+=4-((int)p&3); //align to next 32bit val
+		if ((uintptr_t)p&3) p+=4-((uintptr_t)p&3); //align to next 32bit val
 	}
 }
 
