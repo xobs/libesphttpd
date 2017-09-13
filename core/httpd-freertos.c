@@ -239,7 +239,7 @@ static void platHttpServerTask(void *pvParameters) {
 	ctx = sslCreateContext();
 	if(!ctx)
 	{
-		httpd_printf("platHttpServerTask: failed to create ssl context\n");
+		httpd_printf("%s: failed to create ssl context\n", __FUNCTION__);
 #ifdef linux
 		return NULL;
 #else
@@ -252,7 +252,7 @@ static void platHttpServerTask(void *pvParameters) {
 	do{
 		listenfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (listenfd == -1) {
-			httpd_printf("platHttpServerTask: failed to create sock!\n");
+			httpd_printf("%s: failed to create sock!\n", __FUNCTION__);
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(listenfd == -1);
@@ -261,7 +261,7 @@ static void platHttpServerTask(void *pvParameters) {
 	do{
 		ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (ret != 0) {
-			httpd_printf("platHttpServerTask: failed to bind!\n");
+			httpd_printf("%s: failed to bind!\n", __FUNCTION__);
 			perror("bind failure");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
@@ -271,7 +271,7 @@ static void platHttpServerTask(void *pvParameters) {
 		/* Listen to the local connection */
 		ret = listen(listenfd, HTTPD_MAX_CONNECTIONS);
 		if (ret != 0) {
-			httpd_printf("platHttpServerTask: failed to listen!\n");
+			httpd_printf("%s: failed to listen!\n", __FUNCTION__);
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(ret != 0);
@@ -312,12 +312,12 @@ static void platHttpServerTask(void *pvParameters) {
 				len=sizeof(struct sockaddr_in);
 				remotefd = accept(listenfd, (struct sockaddr *)&remote_addr, (socklen_t *)&len);
 				if (remotefd<0) {
-					httpd_printf("platHttpServerTask: Huh? Accept failed.\n");
+					httpd_printf("%s: Huh? Accept failed.\n", __FUNCTION__);
 					continue;
 				}
 				for(x=0; x<HTTPD_MAX_CONNECTIONS; x++) if (rconn[x].fd==-1) break;
 				if (x==HTTPD_MAX_CONNECTIONS) {
-					httpd_printf("platHttpServerTask: Huh? Got accept with all slots full.\n");
+					httpd_printf("%s: Huh? Got accept with all slots full.\n", __FUNCTION__);
 					continue;
 				}
 
@@ -389,7 +389,7 @@ static void platHttpServerTask(void *pvParameters) {
 				if (FD_ISSET(rconn[x].fd, &readset)) {
 					precvbuf=(char*)malloc(RECV_BUF_SIZE);
 					if (precvbuf==NULL) {
-						httpd_printf("platHttpServerTask: memory exhausted!\n");
+						httpd_printf("%s: memory exhausted!\n", __FUNCTION__);
 						httpdDisconCb(&rconn[x], rconn[x].ip, rconn[x].port);
 						closeConnection(&rconn[x]);
 					}
