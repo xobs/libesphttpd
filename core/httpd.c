@@ -859,10 +859,10 @@ void ICACHE_FLASH_ATTR httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_
 	builtInUrls=fixedUrls;
 
 	httpdPlatInit(port, HTTPD_MAX_CONNECTIONS, listenAddress);
-	httpd_printf("Httpd init\n");
+	httpd_printf("%s init\n", __FUNCTION__);
 }
 
 void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
 	httpdInitEx(fixedUrls, port, INADDR_ANY);
-	httpd_printf("Httpd init\n");
+	httpd_printf("%s init\n", __FUNCTION__);
 }
