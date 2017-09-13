@@ -53,9 +53,9 @@ int htoxl(int in) {
 }
 
 #ifdef ESPFS_HEATSHRINK
-size_t compressHeatshrink(char *in, int insize, char *out, int outsize, int level) {
-	char *inp=in;
-	char *outp=out;
+size_t compressHeatshrink(uint8_t *in, int insize, uint8_t *out, int outsize, int level) {
+	uint8_t *inp=in;
+	uint8_t *outp=out;
 	size_t len;
 	int ws[]={5, 6, 8, 11, 13};
 	int ls[]={3, 3, 4, 4, 4};
@@ -100,7 +100,7 @@ size_t compressHeatshrink(char *in, int insize, char *out, int outsize, int leve
 #endif
 
 #ifdef ESPFS_GZIP
-size_t compressGzip(char *in, int insize, char *out, int outsize, int level) {
+size_t compressGzip(uint8_t *in, int insize, uint8_t *out, int outsize, int level) {
 	z_stream stream;
 	int zresult;
 
@@ -185,7 +185,7 @@ int parseGzipExtensions(char *input) {
 #endif
 
 int handleFile(int f, char *name, int compression, int level, char **compName) {
-	char *fdat, *cdat;
+	uint8_t *fdat, *cdat;
 	off_t size, csize;
 	EspFsHeader h;
 	int nameLen;
