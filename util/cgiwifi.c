@@ -215,12 +215,12 @@ int ICACHE_FLASH_ATTR cgiWiFiConnect(HttpdConnData *connData) {
 	char essid[128];
 	char passwd[128];
 	static os_timer_t reassTimer;
-	
+
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}
-	
+
 	httpdFindArg(connData->post->buff, "essid", essid, sizeof(essid));
 	httpdFindArg(connData->post->buff, "passwd", passwd, sizeof(passwd));
 
@@ -248,7 +248,7 @@ int ICACHE_FLASH_ATTR cgiWiFiSetMode(HttpdConnData *connData) {
 #ifndef ESP32
 	int len;
 	char buff[1024];
-	
+
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
@@ -281,8 +281,8 @@ int ICACHE_FLASH_ATTR cgiWiFiConnStatus(HttpdConnData *connData) {
 	} else if (connTryStatus==CONNTRY_WORKING || connTryStatus==CONNTRY_SUCCESS) {
 		if (st==STATION_GOT_IP) {
 			wifi_get_ip_info(0, &info);
-			len=sprintf(buff, "{\n \"status\": \"success\",\n \"ip\": \"%d.%d.%d.%d\" }\n", 
-				(info.ip.addr>>0)&0xff, (info.ip.addr>>8)&0xff, 
+			len=sprintf(buff, "{\n \"status\": \"success\",\n \"ip\": \"%d.%d.%d.%d\" }\n",
+				(info.ip.addr>>0)&0xff, (info.ip.addr>>8)&0xff,
 				(info.ip.addr>>16)&0xff, (info.ip.addr>>24)&0xff);
 			//Reset into AP-only mode sooner.
 			os_timer_disarm(&resetTimer);
