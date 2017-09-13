@@ -75,8 +75,8 @@ int ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 //a direct POST from e.g. Curl or a Javascript AJAX call with either the
 //firmware given by cgiGetFirmwareNext or an OTA upgrade image.
 
-//Because we don't have the buffer to allocate an entire sector but will 
-//have to buffer some data because the post buffer may be misaligned, we 
+//Because we don't have the buffer to allocate an entire sector but will
+//have to buffer some data because the post buffer may be misaligned, we
 //write SPI data in pages. The page size is a software thing, not
 //a hardware one.
 #ifdef ESP32
@@ -140,10 +140,10 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 		connData->cgiData=state;
 		state->err="Premature end";
 	}
-	
+
 	char *data=connData->post->buff;
 	int dataLen=connData->post->buffLen;
-	
+
 	while (dataLen!=0) {
 		if (state->state==FLST_START) {
 			//First call. Assume the header of whatever we're uploading already is in the POST buffer.
@@ -283,7 +283,7 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 			dataLen=0;
 		}
 	}
-	
+
 	if (connData->post->len==connData->post->received) {
 		//We're done! Format a response.
 		httpd_printf("Upload done. Sending response.\n");
@@ -337,4 +337,3 @@ int ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
 	httpdSend(connData, "Rebooting...", -1);
 	return HTTPD_CGI_DONE;
 }
-
