@@ -40,6 +40,8 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include "heatshrink_decoder.h"
 #endif
 
+// Define to enable more verbose output
+#undef VERBOSE_OUTPUT
 
 //ESP8266 stores flash offsets here. ESP32, for now, stores memory locations here.
 static char* espFsData = NULL;
@@ -165,13 +167,17 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 		//Grab the name of the file.
 		p+=sizeof(EspFsHeader);
 		readFlashAligned((uint32_t*)&namebuf, (uintptr_t)p, sizeof(namebuf));
-//		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n",
-//				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n",
+				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
+#endif
 		if (strcmp(namebuf, fileName)==0) {
 			//Yay, this is the file we need!
 			p+=h.nameLen; //Skip to content.
 			r=(EspFsFile *)malloc(sizeof(EspFsFile)); //Alloc file desc mem
-//			httpd_printf("Alloc %p\n", r);
+#ifdef VERBOSE_OUTPUT
+			httpd_printf("Alloc %p\n", r);
+#endif
 			if (r==NULL) return NULL;
 			r->header=(EspFsHeader *)hpos;
 			r->decompressor=h.compression;
@@ -220,11 +226,15 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		int toRead;
 		toRead=flen-(fh->posComp-fh->posStart);
 		if (len>toRead) len=toRead;
-//		httpd_printf("Reading %d bytes from %x\n", len, (unsigned int)fh->posComp);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Reading %d bytes from %x\n", len, (unsigned int)fh->posComp);
+#endif
 		readFlashUnaligned(buff, fh->posComp, len);
 		fh->posDecomp+=len;
 		fh->posComp+=len;
-//		httpd_printf("Done reading %d bytes, pos=%x\n", len, fh->posComp);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Done reading %d bytes, pos=%x\n", len, fh->posComp);
+#endif
 		return len;
 #ifdef ESPFS_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
@@ -233,7 +243,9 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		size_t elen, rlen;
 		char ebuff[16];
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
-//		httpd_printf("Alloc %p\n", dec);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Alloc %p\n", dec);
+#endif
 		if (fh->posDecomp == fdlen) {
 			return 0;
 		}
@@ -257,11 +269,15 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 			buff+=rlen;
 			decoded+=rlen;
 
-//			httpd_printf("Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
+#ifdef VERBOSE_OUTPUT
+			httpd_printf("Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
+#endif
 
 			if (elen == 0) {
 				if (fh->posDecomp == fdlen) {
-//					httpd_printf("Decoder finish\n");
+#ifdef VERBOSE_OUTPUT
+					httpd_printf("Decoder finish\n");
+#endif
 					heatshrink_decoder_finish(dec);
 				}
 				return decoded;
@@ -280,9 +296,15 @@ void ICACHE_FLASH_ATTR espFsClose(EspFsFile *fh) {
 	if (fh->decompressor==COMPRESS_HEATSHRINK) {
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);
-//		httpd_printf("Freed %p\n", dec);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Freed %p\n", dec);
+#endif
 	}
 #endif
-//	httpd_printf("Freed %p\n", fh);
+
+#ifdef VERBOSE_OUTPUT
+	httpd_printf("Freed %p\n", fh);
+#endif
+
 	free(fh);
 }
