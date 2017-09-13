@@ -3,8 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /*
-Esp8266 http server - core routines
+Http server - core routines
 */
+
+/* Copyright 2017 Jeroen Domburg <git@j0h.nl> */
+/* Copyright 2017 Chris Morgan <chmorgan@gmail.com> */
 
 
 #ifdef linux
