@@ -363,10 +363,6 @@ static void platHttpServerTask(void *pvParameters) {
 				memcpy(&rconn[x].ip, &piname->sin_addr.s_addr, sizeof(rconn[x].ip));
 
 				httpdConnectCb(&rconn[x], rconn[x].ip, rconn[x].port);
-				//os_timer_disarm(&connData[x].conn->stop_watch);
-				//os_timer_setfn(&connData[x].conn->stop_watch, (os_timer_func_t *)httpserver_conn_watcher, connData[x].conn);
-				//os_timer_arm(&connData[x].conn->stop_watch, STOP_TIMER, 0);
-//				httpd_printf("httpserver acpt index %d sockfd %d!\n", x, remotefd);
 			}
 
 			//See if anything happened on the existing connections.
@@ -410,27 +406,6 @@ static void platHttpServerTask(void *pvParameters) {
 			}
 		}
 	}
-
-#if 0
-//Deinit code, not used here.
-	/*release data connection*/
-	for(x=0; x < HTTPD_MAX_CONNECTIONS; x++){
-		//find all valid handle
-		if(connData[x].conn == NULL) continue;
-		if(connData[x].conn->sockfd >= 0){
-			os_timer_disarm((os_timer_t *)&connData[x].conn->stop_watch);
-			close(connData[x].conn->sockfd);
-			connData[x].conn->sockfd = -1;
-			connData[x].conn = NULL;
-			if(connData[x].cgi!=NULL) connData[x].cgi(&connData[x]); //flush cgi data
-			httpdRetireConn(&connData[x]);
-		}
-	}
-	/*release listen socket*/
-	close(listenfd);
-
-	vTaskDelete(NULL);
-#endif
 }
 
 #ifdef linux
