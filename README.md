@@ -12,6 +12,12 @@ as well as a [FreeRTOS-based](http://git.spritesserver.nl/esphttpd-freertos.git/
 how to use libesphttpd to serve files from an ESP8266/ESP32 and illustrate a way to make an user associate
 the ESP8266/ESP32 with an access point from a standard webbrowser on a PC or mobile phone.
 
+# Using with esp-idf (esp32)
+
+Place the libesphttpd repository into the components directory of your esp-idf folder. This should
+put it at esp-idf/components/libesphttpd If it is in the correct location you should see a 'ESP-HTTPD Config'
+entry under 'Component config' when you run 'make menuconfig' on your esp-idf application.
+
 # SSL Support
 
 Libesphttpd supports https under FreeRTOS via openssl/mbedtls.
