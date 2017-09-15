@@ -76,10 +76,23 @@ int cgiRedirectApClientToHostname(HttpdConnData *connData);
 void httpdRedirect(HttpdConnData *conn, char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
-void httpdInit(HttpdBuiltInUrl *fixedUrls, int port);
+
+typedef enum
+{
+	HTTPD_FLAG_NONE = (1 << 0),
+	HTTPD_FLAG_SSL = (1 << 1)
+} HttpdFlags;
+
+typedef enum
+{
+	InitializationSuccess,
+	FeatureFlagMismatch
+} HttpdInitStatus;
+
+HttpdInitStatus httpdInit(HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
 
 /* NOTE: listenAddress is in network byte order */
-void httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress);
+HttpdInitStatus httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
 
 const char *httpdGetMimetype(char *url);
 void httdSetTransferMode(HttpdConnData *conn, int mode);

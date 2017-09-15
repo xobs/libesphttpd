@@ -45,6 +45,8 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 static int httpPort;
 static int httpMaxConnCt;
 static struct sockaddr_in httpListenAddress;
+static HttpdFlags httpdFlags;
+
 #ifdef linux
 static pthread_mutex_t httpdMux;
 #else
@@ -508,10 +510,30 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 #endif
 
 //Initialize listening socket, do general initialization
-void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress) {
+HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress, HttpdFlags flags) {
+	HttpdInitStatus status = InitializationSuccess;
 	httpPort=port;
 	httpMaxConnCt=maxConnCt;
 	httpListenAddress.sin_addr.s_addr = listenAddress;
+	httpdFlags = flags;
+
+	// check flags against feature support
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+	if(!(flags & HTTPD_FLAG_SSL))
+	{
+		httpd_printf("ERROR: SSL flag not set but SSL support is enabled\n");
+		status = FeatureFlagMismatch;
+		return status;
+	}
+#else
+	if(flags & HTTPD_FLAG_SSL)
+	{
+		httpd_printf("ERROR: SSL flag set but SSL support not enabled\n");
+		status = FeatureFlagMismatch;
+		return status;
+	}
+#endif
+
 #ifdef linux
 	pthread_t thread;
 	pthread_create(&thread, NULL, platHttpServerTask, NULL);
@@ -522,4 +544,6 @@ void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAdd
 	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
 #endif
 #endif
+
+	return status;
 }

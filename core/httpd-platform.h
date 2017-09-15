@@ -8,7 +8,7 @@ void httpdPlatDisconnect(ConnTypePtr conn);
 void httpdPlatDisableTimeout(ConnTypePtr conn);
 
 /* NOTE: listenAddress is in network byte order */
-void httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress);
+HttpdInitStatus httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress, HttpdFlags flags);
 
 void httpdPlatLock();
 void httpdPlatUnlock();
