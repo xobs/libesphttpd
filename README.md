@@ -353,6 +353,9 @@ Linux tools such as valgrind can be used to check for memory leaks that would be
 to detect on an	embedded platform. Valgrind and	other tools also provide ways of looking at application
 performance that go beyond what	is typically available in an embedded environment.
 
+See https://github.com/chmorgan/libesphttpd_linux_example for an example of how to use libesphttpd under
+Linux.
+
 # Licensing
 
 libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license by Jeroen Domburg
