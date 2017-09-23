@@ -92,10 +92,10 @@ typedef enum
 	FeatureFlagMismatch
 } HttpdInitStatus;
 
-HttpdInitStatus httpdInit(HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
+HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
 
 /* NOTE: listenAddress is in network byte order */
-HttpdInitStatus httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
+HttpdInitStatus httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
 
 const char *httpdGetMimetype(char *url);
 void httdSetTransferMode(HttpdConnData *conn, int mode);

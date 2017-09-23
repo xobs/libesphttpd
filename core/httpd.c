@@ -20,7 +20,7 @@ Http server - core routines
 #include "httpd-platform.h"
 
 //This gets set at init time.
-static HttpdBuiltInUrl *builtInUrls;
+static const HttpdBuiltInUrl *builtInUrls;
 
 typedef struct HttpSendBacklogItem HttpSendBacklogItem;
 
@@ -850,7 +850,7 @@ int ICACHE_FLASH_ATTR httpdConnectCb(ConnTypePtr conn, char *remIp, int remPort)
 #define INADDR_ANY 0
 
 //Httpd initialization routine. Call this to kick off webserver functionality.
-HttpdInitStatus ICACHE_FLASH_ATTR httpdInitEx(HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags) {
+HttpdInitStatus ICACHE_FLASH_ATTR httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags) {
 	int i;
 	HttpdInitStatus status;
 
@@ -865,7 +865,7 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdInitEx(HttpdBuiltInUrl *fixedUrls, int po
 	return status;
 }
 
-HttpdInitStatus ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags) {
+HttpdInitStatus ICACHE_FLASH_ATTR httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags) {
 	HttpdInitStatus status;
 
 	status = httpdInitEx(fixedUrls, port, INADDR_ANY, flags);

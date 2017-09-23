@@ -48,7 +48,7 @@ handle for a function interpreting headers and generating data to send to the we
 
 The CGI list is an array of the HttpdBuiltInUrl type. Here's an example:
 ```c
-HttpdBuiltInUrl builtInUrls[]={
+const HttpdBuiltInUrl builtInUrls[]={
 	{"/", cgiRedirect, "/index.cgi"},
 	{"/index.cgi", cgiMyFunction, NULL},
 	{"*", cgiEspFsHook, NULL},
