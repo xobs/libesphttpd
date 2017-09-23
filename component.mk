@@ -7,6 +7,8 @@
 # please read the SDK documents if you need to do this.
 #
 
+ifdef CONFIG_ESPHTTPD_ENABLED
+
 COMPONENT_SRCDIRS := core espfs util
 COMPONENT_ADD_INCLUDEDIRS := core espfs util include
 COMPONENT_ADD_LDFLAGS := -lwebpages-espfs -llibesphttpd
@@ -51,3 +53,5 @@ mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/espfs/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/espfs/mkespfsimage/Makefile \
 		ESPFS_HEATSHRINK="$(USE_HEATSHRINK)" GZIP_COMPRESSION="$(GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC)
+
+endif

@@ -1,9 +1,13 @@
 #ESP-IDF Kconfig configuration file. Not used for ESP8266 RTOS/non-RTOS SDKs.
 
-menu "ESP-HTTPD Config"
+menuconfig ESPHTTPD_ENABLED
+    bool "esphttpd"
+    help
+        Select this option to enable libesphttpd and show the submodule with libesphttpd configuration
 
 config ESPHTTPD_MAX_CONNECTIONS
 	int "Maximum amount of connections"
+        depends on ESPHTTPD_ENABLED
 	range 1 LWIP_MAX_SOCKETS
 	default 4
 	help
@@ -11,6 +15,7 @@ config ESPHTTPD_MAX_CONNECTIONS
 
 config ESPHTTPD_STACK_SIZE
 	int "Stack size of ESP-HTTPD task"
+        depends on ESPHTTPD_ENABLED
 	range 1024 16384
 	default 4096
 	help
@@ -18,16 +23,19 @@ config ESPHTTPD_STACK_SIZE
 
 config ESPHTTPD_HTMLDIR
 	string "Directory (on the build machine) where the static files served by the webserver are"
+        depends on ESPHTTPD_ENABLED
 	default "html/"
 
 config ESPHTTPD_USEYUICOMPRESSOR
 	bool "Compress JS/CSS with YUI compressor"
+        depends on ESPHTTPD_ENABLED
 	default n
 	help
 		Compress JS and CSS files with the YIU compressor. Needs YUI installed.
 
 config ESPHTTPD_SSL_SUPPORT
 	bool "Enable SSL for all connections"
+        depends on ESPHTTPD_ENABLED
 	default n
 	help
 		Enabling this forces all connections to be https.
@@ -45,5 +53,3 @@ config ESPHTTPD_SSL_SUPPORT
 		- Create a 'component.mk' file in your app directory and add these lines to it:
 			COMPONENT_EMBED_TXTFILES := cacert.der
 			COMPONENT_EMBED_TXTFILES += prvtkey.der
-
-endmenu
