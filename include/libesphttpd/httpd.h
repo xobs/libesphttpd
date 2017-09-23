@@ -19,8 +19,11 @@
 #define HTTPD_CGI_NOTFOUND 2
 #define HTTPD_CGI_AUTHENTICATED 3
 
-#define HTTPD_METHOD_GET 1
-#define HTTPD_METHOD_POST 2
+typedef enum
+{
+	HTTPD_METHOD_GET,
+	HTTPD_METHOD_POST,
+} RequestTypes;
 
 #define HTTPD_TRANSFER_CLOSE 0
 #define HTTPD_TRANSFER_CHUNKED 1
@@ -36,7 +39,7 @@ typedef int (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
 	ConnTypePtr conn;		// The TCP connection. Exact type depends on the platform.
-	char requestType;		// One of the HTTPD_METHOD_* values
+	RequestTypes requestType;
 	char *url;				// The URL requested, without hostname or GET arguments
 	char *getArgs;			// The GET arguments for this request, if any.
 	const void *cgiArg;		// Argument to the CGI function, as stated as the 3rd argument of
