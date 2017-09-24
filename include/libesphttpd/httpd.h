@@ -79,7 +79,7 @@ typedef struct {
 int cgiRedirect(HttpdConnData *connData);
 int cgiRedirectToHostname(HttpdConnData *connData);
 int cgiRedirectApClientToHostname(HttpdConnData *connData);
-void httpdRedirect(HttpdConnData *conn, char *newUrl);
+void httpdRedirect(HttpdConnData *conn, const char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
 

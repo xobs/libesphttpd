@@ -260,7 +260,7 @@ void ICACHE_FLASH_ATTR httpdEndHeaders(HttpdConnData *conn) {
 }
 
 //Redirect to the given URL.
-void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, char *newUrl) {
+void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, const char *newUrl) {
 	httpdStartResponse(conn, 302);
 	httpdHeader(conn, "Location", newUrl);
 	httpdEndHeaders(conn);
