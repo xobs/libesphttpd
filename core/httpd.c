@@ -217,7 +217,7 @@ int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, char *header, char *re
 	return 0;
 }
 
-void ICACHE_FLASH_ATTR httdSetTransferMode(HttpdConnData *conn, int mode) {
+void ICACHE_FLASH_ATTR httpdSetTransferMode(HttpdConnData *conn, TransferModes mode) {
 	if (mode==HTTPD_TRANSFER_CLOSE) {
 		conn->priv->flags&=~HFL_CHUNKED;
 		conn->priv->flags&=~HFL_NOCONNECTIONSTR;

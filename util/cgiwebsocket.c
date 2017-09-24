@@ -319,7 +319,7 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 				strcat(buff, WS_GUID);
 				sha1_init(&s);
 				sha1_write(&s, buff, strlen(buff));
-				httdSetTransferMode(connData, HTTPD_TRANSFER_NONE);
+				httpdSetTransferMode(connData, HTTPD_TRANSFER_NONE);
 				httpdStartResponse(connData, 101);
 				httpdHeader(connData, "Upgrade", "websocket");
 				httpdHeader(connData, "Connection", "upgrade");

@@ -25,9 +25,12 @@ typedef enum
 	HTTPD_METHOD_POST,
 } RequestTypes;
 
-#define HTTPD_TRANSFER_CLOSE 0
-#define HTTPD_TRANSFER_CHUNKED 1
-#define HTTPD_TRANSFER_NONE 2
+typedef enum
+{
+	HTTPD_TRANSFER_CLOSE,
+	HTTPD_TRANSFER_CHUNKED,
+	HTTPD_TRANSFER_NONE
+} TransferModes;
 
 typedef struct HttpdPriv HttpdPriv;
 typedef struct HttpdConnData HttpdConnData;
@@ -98,7 +101,7 @@ HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags
 HttpdInitStatus httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
 
 const char *httpdGetMimetype(char *url);
-void httdSetTransferMode(HttpdConnData *conn, int mode);
+void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
 void httpdHeader(HttpdConnData *conn, const char *field, const char *val);
 void httpdEndHeaders(HttpdConnData *conn);
