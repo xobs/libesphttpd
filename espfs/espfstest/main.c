@@ -1,5 +1,9 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
-Simple and stupid file decompressor for an espfs image. Mostly used as a testbed for espfs.c and 
+Simple and stupid file decompressor for an espfs image. Mostly used as a testbed for espfs.c and
 the decompressors: code compiled natively is way easier to debug using gdb et all :)
 */
 #include <stdio.h>
@@ -58,7 +62,7 @@ int main(int argc, char **argv) {
 		perror(argv[2]);
 		exit(1);
 	}
-	
+
 	while ((len=espFsRead(ef, buff, 128))!=0) {
 		write(out, buff, len);
 	}

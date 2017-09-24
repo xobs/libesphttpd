@@ -1,6 +1,15 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* base64.c : base-64 / MIME encode/decode */
 /* PUBLIC DOMAIN - Jon Mayo - November 13, 2003 */
-#include <esp8266.h>
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
+#include <libesphttpd/esp.h>
+#endif
+
 #include "base64.h"
 
 static const int base64dec_tab[256] ICACHE_RODATA_ATTR={
@@ -31,9 +40,9 @@ static int ICACHE_FLASH_ATTR base64decode(const char in[4], char out[3]) {
 	v[2]=base64dec_tab[(unsigned)in[2]];
 	v[3]=base64dec_tab[(unsigned)in[3]];
 
-	out[0]=(v[0]<<2)|(v[1]>>4); 
-	out[1]=(v[1]<<4)|(v[2]>>2); 
-	out[2]=(v[2]<<6)|(v[3]); 
+	out[0]=(v[0]<<2)|(v[1]>>4);
+	out[1]=(v[1]<<4)|(v[2]>>2);
+	out[2]=(v[2]<<6)|(v[3]);
 	return (v[0]|v[1]|v[2]|v[3])!=255 ? in[3]=='=' ? in[2]=='=' ? 1 : 2 : 3 : 0;
 }
 #endif
@@ -106,4 +115,3 @@ int ICACHE_FLASH_ATTR __attribute__((weak)) base64_encode(size_t in_len, const u
 	out[io]=0;
 	return io;
 }
-

@@ -1,0 +1,55 @@
+#ESP-IDF Kconfig configuration file. Not used for ESP8266 RTOS/non-RTOS SDKs.
+
+menuconfig ESPHTTPD_ENABLED
+    bool "esphttpd"
+    help
+        Select this option to enable libesphttpd and show the submodule with libesphttpd configuration
+
+config ESPHTTPD_MAX_CONNECTIONS
+	int "Maximum amount of connections"
+        depends on ESPHTTPD_ENABLED
+	range 1 LWIP_MAX_SOCKETS
+	default 4
+	help
+		Amount of concurrent connections esp-httpd can sustain. Cannot be more than the amount of sockets lwip supports.
+
+config ESPHTTPD_STACK_SIZE
+	int "Stack size of ESP-HTTPD task"
+        depends on ESPHTTPD_ENABLED
+	range 1024 16384
+	default 4096
+	help
+		Stack size reserved for the esp-httpd main task plus CGIs.
+
+config ESPHTTPD_HTMLDIR
+	string "Directory (on the build machine) where the static files served by the webserver are"
+        depends on ESPHTTPD_ENABLED
+	default "html/"
+
+config ESPHTTPD_USEYUICOMPRESSOR
+	bool "Compress JS/CSS with YUI compressor"
+        depends on ESPHTTPD_ENABLED
+	default n
+	help
+		Compress JS and CSS files with the YIU compressor. Needs YUI installed.
+
+config ESPHTTPD_SSL_SUPPORT
+	bool "Enable SSL for all connections"
+        depends on ESPHTTPD_ENABLED
+	default n
+	help
+		Enabling this forces all connections to be https.
+
+		SSL servers require certificates. Steps to use:
+		- Place a 'cacert.der' and 'prvtkey.der' files in your app directory.
+
+		- To create self certified certificates:
+			$ openssl req -sha256 -newkey rsa:4096 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
+
+		- To generate .der certificates/keys from .pem certificates/keys:
+			$ openssl x509 -outform der -in certificate.pem -out certificate.der
+			$ openssl rsa -outform der -in key.pem -out key.der
+
+		- Create a 'component.mk' file in your app directory and add these lines to it:
+			COMPONENT_EMBED_TXTFILES := cacert.der
+			COMPONENT_EMBED_TXTFILES += prvtkey.der

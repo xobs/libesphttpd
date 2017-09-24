@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -9,7 +13,7 @@
 #ifdef __MINGW32__
 #include <io.h>
 #endif
-#include "espfs.h"
+#include "libesphttpd/espfs.h"
 #include "espfsformat.h"
 
 //Heatshrink
@@ -21,7 +25,7 @@
 
 //Gzip
 #ifdef ESPFS_GZIP
-// If compiler complains about missing header, try running "sudo apt-get install zlib1g-dev" 
+// If compiler complains about missing header, try running "sudo apt-get install zlib1g-dev"
 // to install missing package.
 #include <zlib.h>
 #endif
@@ -49,9 +53,9 @@ int htoxl(int in) {
 }
 
 #ifdef ESPFS_HEATSHRINK
-size_t compressHeatshrink(char *in, int insize, char *out, int outsize, int level) {
-	char *inp=in;
-	char *outp=out;
+size_t compressHeatshrink(uint8_t *in, int insize, uint8_t *out, int outsize, int level) {
+	uint8_t *inp=in;
+	uint8_t *outp=out;
 	size_t len;
 	int ws[]={5, 6, 8, 11, 13};
 	int ls[]={3, 3, 4, 4, 4};
@@ -96,7 +100,7 @@ size_t compressHeatshrink(char *in, int insize, char *out, int outsize, int leve
 #endif
 
 #ifdef ESPFS_GZIP
-size_t compressGzip(char *in, int insize, char *out, int outsize, int level) {
+size_t compressGzip(uint8_t *in, int insize, uint8_t *out, int outsize, int level) {
 	z_stream stream;
 	int zresult;
 
@@ -181,7 +185,7 @@ int parseGzipExtensions(char *input) {
 #endif
 
 int handleFile(int f, char *name, int compression, int level, char **compName) {
-	char *fdat, *cdat;
+	uint8_t *fdat, *cdat;
 	off_t size, csize;
 	EspFsHeader h;
 	int nameLen;
@@ -190,7 +194,7 @@ int handleFile(int f, char *name, int compression, int level, char **compName) {
 	fdat=malloc(size);
 	lseek(f, 0, SEEK_SET);
 	read(f, fdat, size);
-	
+
 
 #ifdef ESPFS_GZIP
 	if (shouldCompressGzip(name)) {
@@ -233,7 +237,7 @@ int handleFile(int f, char *name, int compression, int level, char **compName) {
 	h.nameLen=htoxs(h.nameLen);
 	h.fileLenComp=htoxl(csize);
 	h.fileLenDecomp=htoxl(size);
-	
+
 	write(1, &h, sizeof(EspFsHeader));
 	write(1, name, nameLen);
 	while (nameLen&3) {

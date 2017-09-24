@@ -1,22 +1,21 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
 Websocket support for esphttpd. Inspired by https://github.com/dangrie158/ESP-8266-WebSocket
 */
 
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return. 
- * ----------------------------------------------------------------------------
- */
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
+#include <libesphttpd/esp.h>
+#endif
 
-
-#include <esp8266.h>
-#include "httpd.h"
-#include "sha1.h"
+#include "libesphttpd/httpd.h"
+#include "libesphttpd/sha1.h"
 #include "base64.h"
-#include "cgiwebsocket.h"
+#include "libesphttpd/cgiwebsocket.h"
 
 #define WS_KEY_IDENTIFIER "Sec-WebSocket-Key: "
 #define WS_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -92,7 +91,7 @@ static int ICACHE_FLASH_ATTR sendFrameHead(Websock *ws, int opcode, int len) {
 	buf[i++]=opcode;
 	if (len>65535) {
 		buf[i++]=127;
-		buf[i++]=0; buf[i++]=0; buf[i++]=0; buf[i++]=0; 
+		buf[i++]=0; buf[i++]=0; buf[i++]=0; buf[i++]=0;
 		buf[i++]=len>>24;
 		buf[i++]=len>>16;
 		buf[i++]=len>>8;
@@ -160,7 +159,7 @@ static void ICACHE_FLASH_ATTR websockFree(Websock *ws) {
 	if (ws->priv) free(ws->priv);
 }
 
-int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int len) {
+CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int len) {
 	int i, j, sl;
 	int r=HTTPD_CGI_MORE;
 	int wasHeaderByte;
@@ -196,7 +195,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 			//Was a payload byte.
 			wasHeaderByte=0;
 		}
-		
+
 		if (ws->priv->wsStatus==ST_PAYLOAD && wasHeaderByte) {
 			//We finished parsing the header, but i still is on the last header byte. Move one forward so
 			//the payload code works as usual.
@@ -205,7 +204,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 		//Also finish parsing frame if we haven't received any payload bytes yet, but the length of the frame
 		//is zero.
 		if (ws->priv->wsStatus==ST_PAYLOAD) {
-			//Okay, header is in; this is a data byte. We're going to process all the data bytes we have 
+			//Okay, header is in; this is a data byte. We're going to process all the data bytes we have
 			//received here at the same time; no more byte iterations till the end of this frame.
 			//First, unmask the data
 			sl=len-i;
@@ -227,7 +226,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 					if (!ws->priv->frameCont) sendFrameHead(ws, OPCODE_PONG|FLAG_FIN, ws->priv->fr.len);
 					if (sl>0) httpdSend(ws->conn, data+i, sl);
 				}
-			} else if ((ws->priv->fr.flags&OPCODE_MASK)==OPCODE_TEXT || 
+			} else if ((ws->priv->fr.flags&OPCODE_MASK)==OPCODE_TEXT ||
 						(ws->priv->fr.flags&OPCODE_MASK)==OPCODE_BINARY ||
 						(ws->priv->fr.flags&OPCODE_MASK)==OPCODE_CONTINUE) {
 				if (sl>ws->priv->fr.len) sl=ws->priv->fr.len;
@@ -273,7 +272,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 }
 
 //Websocket 'cgi' implementation
-int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 	char buff[256];
 	int i;
 	sha1nfo s;
@@ -288,7 +287,7 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 		}
 		return HTTPD_CGI_DONE;
 	}
-	
+
 	if (connData->cgiData==NULL) {
 //		httpd_printf("WS: First call\n");
 		//First call here. Check if client headers are OK, send server header.
@@ -320,7 +319,7 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 				strcat(buff, WS_GUID);
 				sha1_init(&s);
 				sha1_write(&s, buff, strlen(buff));
-				httdSetTransferMode(connData, HTTPD_TRANSFER_NONE);
+				httpdSetTransferMode(connData, HTTPD_TRANSFER_NONE);
 				httpdStartResponse(connData, 101);
 				httpdHeader(connData, "Upgrade", "websocket");
 				httpdHeader(connData, "Connection", "upgrade");
@@ -348,11 +347,10 @@ int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_DONE;
 	}
-	
+
 	//Sending is done. Call the sent callback if we have one.
 	Websock *ws=(Websock*)connData->cgiData;
 	if (ws && ws->sentCb) ws->sentCb(ws);
 
 	return HTTPD_CGI_MORE;
 }
-

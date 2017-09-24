@@ -1,23 +1,26 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
-Esp8266 http server - core routines
+Http server - core routines
 */
 
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return. 
- * ----------------------------------------------------------------------------
- */
+/* Copyright 2017 Jeroen Domburg <git@j0h.nl> */
+/* Copyright 2017 Chris Morgan <chmorgan@gmail.com> */
 
 
-#include <esp8266.h>
-#include "httpd.h"
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
+#include <libesphttpd/esp.h>
+#endif
+
+#include "libesphttpd/httpd.h"
 #include "httpd-platform.h"
 
 //This gets set at init time.
-static HttpdBuiltInUrl *builtInUrls;
+static const HttpdBuiltInUrl *builtInUrls;
 
 typedef struct HttpSendBacklogItem HttpSendBacklogItem;
 
@@ -77,13 +80,14 @@ static const ICACHE_RODATA_ATTR MimeMap mimeTypes[]={
 };
 
 //Returns a static char* to a mime type for a given url to a file.
-const char ICACHE_FLASH_ATTR *httpdGetMimetype(char *url) {
+const char ICACHE_FLASH_ATTR *httpdGetMimetype(const char *url) {
+	char *urlp = (char*)url;
 	int i=0;
 	//Go find the extension
-	char *ext=url+(strlen(url)-1);
-	while (ext!=url && *ext!='.') ext--;
+	char *ext=urlp+(strlen(urlp)-1);
+	while (ext!=urlp && *ext!='.') ext--;
 	if (*ext=='.') ext++;
-	
+
 	//ToDo: strcmp is case sensitive; we may want to do case-intensive matching here...
 	while (mimeTypes[i].ext!=NULL && strcmp(ext, mimeTypes[i].ext)!=0) i++;
 	return mimeTypes[i].mimetype;
@@ -163,7 +167,7 @@ int ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLe
 //Find a specific arg in a string of get- or post-data.
 //Line is the string of post/get-data, arg is the name of the value to find. The
 //zero-terminated result is written in buff, with at most buffLen bytes used. The
-//function returns the length of the result, or -1 if the value wasn't found. The 
+//function returns the length of the result, or -1 if the value wasn't found. The
 //returned string will be urldecoded already.
 int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLen) {
 	char *p, *e;
@@ -187,7 +191,7 @@ int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLe
 
 //Get the value of a certain header in the HTTP client head
 //Returns true when found, false when not found.
-int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, char *header, char *ret, int retLen) {
+int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen) {
 	char *p=conn->priv->head;
 	p=p+strlen(p)+1; //skip GET/POST part
 	p=p+strlen(p)+1; //skip HTTP part
@@ -214,7 +218,7 @@ int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, char *header, char *re
 	return 0;
 }
 
-void ICACHE_FLASH_ATTR httdSetTransferMode(HttpdConnData *conn, int mode) {
+void ICACHE_FLASH_ATTR httpdSetTransferMode(HttpdConnData *conn, TransferModes mode) {
 	if (mode==HTTPD_TRANSFER_CLOSE) {
 		conn->priv->flags&=~HFL_CHUNKED;
 		conn->priv->flags&=~HFL_NOCONNECTIONSTR;
@@ -234,9 +238,9 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 	const char *connStr="Connection: close\r\n";
 	if (conn->priv->flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
 	if (conn->priv->flags&HFL_NOCONNECTIONSTR) connStr="";
-	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp8266-httpd/"HTTPDVER"\r\n%s", 
-			(conn->priv->flags&HFL_HTTP11)?1:0, 
-			code, 
+	l=sprintf(buff, "HTTP/1.%d %d OK\r\nServer: esp-httpd/"HTTPDVER"\r\n%s",
+			(conn->priv->flags&HFL_HTTP11)?1:0,
+			code,
 			connStr);
 	httpdSend(conn, buff, l);
 }
@@ -256,7 +260,7 @@ void ICACHE_FLASH_ATTR httpdEndHeaders(HttpdConnData *conn) {
 }
 
 //Redirect to the given URL.
-void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, char *newUrl) {
+void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, const char *newUrl) {
 	httpdStartResponse(conn, 302);
 	httpdHeader(conn, "Location", newUrl);
 	httpdEndHeaders(conn);
@@ -265,7 +269,7 @@ void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, char *newUrl) {
 }
 
 //Use this as a cgi function to redirect one url to another.
-int ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
@@ -275,7 +279,7 @@ int ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
 }
 
 //Used to spit out a 404 error
-static int ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
+static CgiStatus ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 	if (connData->conn==NULL) return HTTPD_CGI_DONE;
 	httpdStartResponse(connData, 404);
 	httpdEndHeaders(connData);
@@ -288,7 +292,7 @@ static int ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 //ESP in order to load a HTML page as soon as a phone, tablet etc connects to the ESP. Watch out:
 //this will also redirect connections when the ESP is in STA mode, potentially to a hostname that is not
 //in the 'official' DNS and so will fail.
-int ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 	static const char hostFmt[]="http://%s/";
 	char *buff;
 	int isIP=0;
@@ -329,7 +333,10 @@ int ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 //Same as above, but will only redirect clients with an IP that is in the range of
 //the SoftAP interface. This should preclude clients connected to the STA interface
 //to be redirected to nowhere.
-int ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
+#ifdef linux
+	return HTTPD_CGI_NOTFOUND;
+#else
 #ifndef FREERTOS
 	uint32 *remadr;
 	struct ip_info apip;
@@ -345,6 +352,7 @@ int ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
 	}
 #else
 	return HTTPD_CGI_NOTFOUND;
+#endif
 #endif
 }
 
@@ -548,7 +556,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 			httpd_printf("%s not found. 404!\n", conn->url);
 			conn->cgi=cgiNotFound;
 		}
-		
+
 		//Okay, we have a CGI function that matches the URL. See if it wants to handle the
 		//particular URL we're supposed to handle.
 		r=conn->cgi(conn);
@@ -577,7 +585,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 	int i;
 	char firstLine=0;
-	
+
 	if (strncmp(h, "GET ", 4)==0) {
 		conn->requestType = HTTPD_METHOD_GET;
 		firstLine=1;
@@ -592,7 +600,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 
 	if (firstLine) {
 		char *e;
-		
+
 		//Skip past the space after POST/GET
 		i=0;
 		while (h[i]!=' ') i++;
@@ -839,15 +847,30 @@ int ICACHE_FLASH_ATTR httpdConnectCb(ConnTypePtr conn, char *remIp, int remPort)
 	return 1;
 }
 
+
+#define INADDR_ANY 0
+
 //Httpd initialization routine. Call this to kick off webserver functionality.
-void ICACHE_FLASH_ATTR httpdInit(HttpdBuiltInUrl *fixedUrls, int port) {
+HttpdInitStatus ICACHE_FLASH_ATTR httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags) {
 	int i;
+	HttpdInitStatus status;
 
 	for (i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
 		connData[i]=NULL;
 	}
 	builtInUrls=fixedUrls;
 
-	httpdPlatInit(port, HTTPD_MAX_CONNECTIONS);
-	httpd_printf("Httpd init\n");
+	status = httpdPlatInit(port, HTTPD_MAX_CONNECTIONS, listenAddress, flags);
+	httpd_printf("%s init\n", __FUNCTION__);
+
+	return status;
+}
+
+HttpdInitStatus ICACHE_FLASH_ATTR httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags) {
+	HttpdInitStatus status;
+
+	status = httpdInitEx(fixedUrls, port, INADDR_ANY, flags);
+	httpd_printf("%s init\n", __FUNCTION__);
+
+	return status;
 }

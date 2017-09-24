@@ -1,19 +1,19 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
 Connector to let httpd use the espfs filesystem to serve the files in it.
 */
 
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return. 
- * ----------------------------------------------------------------------------
- */
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
+#include <libesphttpd/esp.h>
+#endif
 
-#include <esp8266.h>
-#include "httpdespfs.h"
-#include "espfs.h"
+#include "libesphttpd/httpdespfs.h"
+#include "libesphttpd/espfs.h"
 #include "espfsformat.h"
 
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
@@ -24,13 +24,13 @@ static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nSe
 //This is a catch-all cgi function. It takes the url passed to it, looks up the corresponding
 //path in the filesystem and if it exists, passes the file through. This simulates what a normal
 //webserver would do with static files.
-int ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 	EspFsFile *file=connData->cgiData;
 	int len;
 	char buff[1024];
 	char acceptEncodingBuffer[64];
 	int isGzip;
-	
+
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		espFsClose(file);
@@ -106,7 +106,7 @@ typedef struct {
 
 typedef void (* TplCallback)(HttpdConnData *connData, char *token, void **arg);
 
-int ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	TplData *tpd=connData->cgiData;
 	int len;
 	int x, sp=0;
@@ -195,4 +195,3 @@ int ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 }
-

@@ -1,13 +1,22 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* This code is public-domain - it is based on libcrypt
  * placed in the public domain by Wei Dai and other contributors.
  */
 // gcc -Wall -DSHA1TEST -o sha1test sha1.c && ./sha1test
 
-#include <esp8266.h>
+#ifdef linux
+#include <libesphttpd/linux.h>
+#else
+#include <libesphttpd/esp.h>
+#endif
+
 #include <stdint.h>
 #include <string.h>
 
-#include "sha1.h"
+#include "libesphttpd/sha1.h"
 
 //according to http://ip.cadence.com/uploads/pdf/xtensalx_overview_handbook.pdf
 // the cpu is normally defined as little ending, but can be big endian too.

@@ -1,6 +1,6 @@
 # Libesphttpd intro
 
-Libesphttpd is a HTTP server library for the ESP8266. It supports integration in projects
+Libesphttpd is a HTTP server library for the ESP8266/ESP32. It supports integration in projects
 running under the non-os and FreeRTOS-based SDK. Its core is clean and small, but it provides an
 extensible architecture with plugins to handle a flash-based compressed read-only filesystem
 for static files, a tiny template engine, websockets, a captive portal, and more.
@@ -9,15 +9,29 @@ for static files, a tiny template engine, websockets, a captive portal, and more
 
 There are two example projects that integrate this code, both a [non-os](http://git.spritesserver.nl/esphttpd.git/)
 as well as a [FreeRTOS-based](http://git.spritesserver.nl/esphttpd-freertos.git/) example. They show
-how to use libesphttpd to serve files from an ESP8266 and illustrate a way to make an user associate
-the ESP8266 with an access point from a standard webbrowser on a PC or mobile phone.
+how to use libesphttpd to serve files from an ESP8266/ESP32 and illustrate a way to make an user associate
+the ESP8266/ESP32 with an access point from a standard webbrowser on a PC or mobile phone.
+
+# Using with esp-idf (esp32)
+
+Place the libesphttpd repository into the components directory of your esp-idf folder. This should
+put it at esp-idf/components/libesphttpd If it is in the correct location you should see a 'ESP-HTTPD Config'
+entry under 'Component config' when you run 'make menuconfig' on your esp-idf application.
+
+# SSL Support
+
+Libesphttpd supports https under FreeRTOS via openssl/mbedtls.
+
+Enable 'ESPHTTPD_SSL_SUPPORT' during project configuration. Note the instructions on including the CA
+certificate and private key in your project build as the build will fail without the appropriately
+named files and SSL initialization will fail if the files are not in the correct format.
 
 # Programming guide
 
 Programming libesphttpd will require some knowledge of HTTP. Knowledge of the exact RFCs isn't needed,
 but it helps if you know the difference between a GET and a POST request, how HTTP headers work,
 what an mime-type is and so on. Furthermore, libesphttpd is written in the C language and uses the
-libraries available on the ESP8266 SDK. It is assumed the developer knows C and has some experience 
+libraries available on the ESP8266/ESP32 SDK. It is assumed the developer knows C and has some experience 
 with the SDK.
 
 ## Initializing libesphttpd
@@ -34,7 +48,7 @@ handle for a function interpreting headers and generating data to send to the we
 
 The CGI list is an array of the HttpdBuiltInUrl type. Here's an example:
 ```c
-HttpdBuiltInUrl builtInUrls[]={
+const HttpdBuiltInUrl builtInUrls[]={
 	{"/", cgiRedirect, "/index.cgi"},
 	{"/index.cgi", cgiMyFunction, NULL},
 	{"*", cgiEspFsHook, NULL},
@@ -82,13 +96,13 @@ to the host instead. If the hostname does match, it will pass on the request.
 
 * __cgiRedirectApClientToHostname__ (arg: hostname to redirect to)
 This does the same as `cgiRedirectToHostname` but only to clients connected to the SoftAP of the
-ESP8266. This and the former function are used with the captive portal mode. The captive portal consists
+ESP8266/ESP32. This and the former function are used with the captive portal mode. The captive portal consists
 of a DNS-server (started by calling `captdnsInit()`) resolving all hostnames into the IP of the
-ESP8266. These redirect functions can then be used to further redirect the client to the hostname of 
-the ESP8266.
+ESP8266/ESP32. These redirect functions can then be used to further redirect the client to the hostname of 
+the ESP8266/ESP32.
 
 * __cgiReadFlash__ (arg: none)
-Will serve up the SPI flash of the ESP8266 as a binary file.
+Will serve up the SPI flash of the ESP8266/ESP32 as a binary file.
 
 * __cgiGetFirmwareNext__ (arg: CgiUploadFlashDef flash description data)
 For OTA firmware upgrade: indicates if the user1 or user2 firmware needs to be sent to the ESP to do
@@ -98,7 +112,7 @@ an OTA upgrade
 Accepts a POST request containing the user1 or user2 firmware binary and flashes it to the SPI flash
 
 * __cgiRebootFirmware__ (arg: none)
-Reboots the ESP8266 to the newly uploaded code after a firmware upload.
+Reboots the ESP8266/ESP32 to the newly uploaded code after a firmware upload.
 
 * __cgiWiFi* functions__ (arg: various)
 These are used to change WiFi mode, scan for access points, associate to an access point etcetera. See
@@ -129,7 +143,7 @@ POST-arguments.
 A simple CGI function may, for example, greet the user with a name given as a GET argument:
 
 ```c
-int ICACHE_FLASH_ATTR cgiGreetUser(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiGreetUser(HttpdConnData *connData) {
 	int len;			//length of user name
 	char name[128];		//Temporary buffer for name
 	char output[256];	//Temporary buffer for HTML output
@@ -213,7 +227,7 @@ static char *longString="Please assume this is a very long string, way too long 
 		"in one time because it won't fit in the send buffer in it's entirety; we have to"\
 		"break up sending it in multiple parts."
 
-int ICACHE_FLASH_ATTR cgiSendLongString(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiSendLongString(HttpdConnData *connData) {
 	LongStringState *state=connData->cgiData;
 	int len;
 	
@@ -309,19 +323,49 @@ When this URL is requested, the words between percent characters will invoke the
 it to output specific data. For example:
 
 ```c
-int ICACHE_FLASH_ATTR tplShowName(HttpdConnData *connData, char *token, void **arg) {
+CgiStatus ICACHE_FLASH_ATTR tplShowName(HttpdConnData *connData, char *token, void **arg) {
 	if (token==NULL) return HTTPD_CGI_DONE;
 
 	if (os_strcmp(token, "username")==0) httpdSend(connData, "John Doe", -1);
-	if (os_strcmp(token, "thing")==0) httpdSend(connData, "ESP8266 webserver", -1);
+	if (os_strcmp(token, "thing")==0) httpdSend(connData, "ESP8266/ESP32 webserver", -1);
 
 	return HTTPD_CGI_DONE;
 }
 ```
 
-This will result in a page stating *Welcome, John Doe, to the ESP8266 webserver!*.
+This will result in a page stating *Welcome, John Doe, to the ESP8266/ESP32 webserver!*.
 
 
 ## Websocket functionality
 
 ToDo: document this
+
+# Linux support
+
+Lwip provides a POSIX interface that matches that of a Linux system. FreeRTOS primitives are also similiar
+to those provided under POSIX.
+
+Running	on a Linux system enables testing under a range of different conditions including different
+native pointer sizes (64bit vs.	32bit),	as well	as with	different compilers. These differences can
+help reveal portability issues.
+
+Linux tools such as valgrind can be used to check for memory leaks that would be much more difficult
+to detect on an	embedded platform. Valgrind and	other tools also provide ways of looking at application
+performance that go beyond what	is typically available in an embedded environment.
+
+See https://github.com/chmorgan/libesphttpd_linux_example for an example of how to use libesphttpd under
+Linux.
+
+# Licensing
+
+libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license by Jeroen Domburg
+but was re-licensed with the blessing of most of the projects contributors.
+
+The topic of licenses can be controversial. The original license was more free in that it allowed users to use the code
+in any way, including relicensing it to any license they chose. The MPLv2 restricts freedom in that it requires
+modifications to be given back to the community. This license establishes the agreement that in exchange for using
+this great library that users are required to give back their changes to let others benefit.
+
+While the 'Beer-ware' license text was removed to avoid license confusion the authors of this great library,
+especially Jeroen, deserve a beer. If you appreciate the library and you meet them in person some day please consider
+buying them a beer to say thanks!

@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -6,6 +10,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+
+/*
+Program to combine two OTA images into one combined image.
+Only needed for the ESP8266, which has a separately compiled
+image for each OTA region. The ESP32 can run the same OTA image
+independent of the flash position it is in, so it does not
+need multiple OTA images to be combined into one.
+*/
 
 //Cygwin e.a. needs O_BINARY. Don't miscompile if it's not set.
 #ifndef O_BINARY

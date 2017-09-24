@@ -1,26 +1,26 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
 This is a simple read-only implementation of a file system. It uses a block of data coming from the
 mkespfsimg tool, and can use that block to do abstracted operations on the files that are in there.
 It's written for use with httpd, but doesn't need to be used as such.
 */
 
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Jeroen Domburg <jeroen@spritesmods.com> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return. 
- * ----------------------------------------------------------------------------
- */
-
-
 //These routines can also be tested by comping them in with the espfstest tool. This
 //simplifies debugging, but needs some slightly different headers. The #ifdef takes
 //care of that.
 
-#ifdef __ets__
+#ifdef linux
+
+#include <libesphttpd/linux.h>
+
+#else
+
+#if __ets__ || ESP_PLATFORM
 //esp build
-#include <esp8266.h>
+#include <libesphttpd/esp.h>
 #else
 //Test build
 #include <stdio.h>
@@ -30,14 +30,20 @@ It's written for use with httpd, but doesn't need to be used as such.
 #define ICACHE_FLASH_ATTR
 #endif
 
+#endif
+
 #include "espfsformat.h"
-#include "espfs.h"
+#include "libesphttpd/espfs.h"
 
 #ifdef ESPFS_HEATSHRINK
 #include "heatshrink_config_custom.h"
 #include "heatshrink_decoder.h"
 #endif
 
+// Define to enable more verbose output
+#undef VERBOSE_OUTPUT
+
+//ESP8266 stores flash offsets here. ESP32, for now, stores memory locations here.
 static char* espFsData = NULL;
 
 
@@ -68,38 +74,10 @@ a memory exception, crashing the program.
 
 #ifndef ESP32
 #define FLASH_BASE_ADDR 0x40200000
-#else
-//ESP32 IRAM addresses start at 0x40000000, but the IRAM segment actually is mapped
-//starting from SPI address 0x40000.
-#define FLASH_BASE_ADDR 0x40040000
 #endif
 
-EspFsInitResult ICACHE_FLASH_ATTR espFsInit(void *flashAddress) {
-	if((uint32_t)flashAddress > 0x40000000) {
-		flashAddress = (void*)((uint32_t)flashAddress-FLASH_BASE_ADDR);
-	}
-
-	// base address must be aligned to 4 bytes
-	if (((int)flashAddress & 3) != 0) {
-		return ESPFS_INIT_RESULT_BAD_ALIGN;
-	}
-
-	// check if there is valid header at address
-	EspFsHeader testHeader;
-	spi_flash_read((uint32)flashAddress, (uint32*)&testHeader, sizeof(EspFsHeader));
-	if (testHeader.magic != ESPFS_MAGIC) {
-		return ESPFS_INIT_RESULT_NO_IMAGE;
-	}
-
-	espFsData = (char *)flashAddress;
-	return ESPFS_INIT_RESULT_OK;
-}
-
-//Copies len bytes over from dst to src, but does it using *only*
-//aligned 32-bit reads. Yes, it's no too optimized but it's short and sweet and it works.
-
 //ToDo: perhaps memcpy also does unaligned accesses?
-#ifdef __ets__
+#if defined(__ets__) && !defined(ESP32)
 void ICACHE_FLASH_ATTR readFlashUnaligned(char *dst, char *src, int len) {
 	uint8_t src_offset = ((uint32_t)src) & 3;
 	uint32_t src_address = ((uint32_t)src) - src_offset;
@@ -111,6 +89,41 @@ void ICACHE_FLASH_ATTR readFlashUnaligned(char *dst, char *src, int len) {
 #else
 #define readFlashUnaligned memcpy
 #endif
+
+#if defined(__ets__) && !defined(ESP32)
+void ICACHE_FLASH_ATTR readFlashAligned(uint32 *dst, uint32_t pos, int len) {
+	spi_flash_read(pos, dst, len);
+}
+#else
+#define readFlashAligned(a,b,c) memcpy(a, (uint32_t*)b, c)
+#endif
+
+EspFsInitResult ICACHE_FLASH_ATTR espFsInit(void *flashAddress) {
+#ifndef ESP32
+	if((uintptr_t)flashAddress > 0x40000000) {
+		flashAddress = (void*)((uintptr_t)flashAddress-FLASH_BASE_ADDR);
+	}
+
+	// base address must be aligned to 4 bytes
+	if (((uintptr_t)flashAddress & 3) != 0) {
+		return ESPFS_INIT_RESULT_BAD_ALIGN;
+	}
+#endif
+
+	// check if there is valid header at address
+	EspFsHeader testHeader;
+	readFlashUnaligned((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
+	printf("Esp magic: %x (should be %x)\n", testHeader.magic, ESPFS_MAGIC);
+	if (testHeader.magic != ESPFS_MAGIC) {
+		return ESPFS_INIT_RESULT_NO_IMAGE;
+	}
+
+	espFsData = (char *)flashAddress;
+	return ESPFS_INIT_RESULT_OK;
+}
+
+//Copies len bytes over from dst to src, but does it using *only*
+//aligned 32-bit reads. Yes, it's no too optimized but it's short and sweet and it works.
 
 // Returns flags of opened file.
 int ICACHE_FLASH_ATTR espFsFlags(EspFsFile *fh) {
@@ -141,7 +154,7 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 	while(1) {
 		hpos=p;
 		//Grab the next file header.
-		spi_flash_read((uint32)p, (uint32*)&h, sizeof(EspFsHeader));
+		readFlashAligned((uintptr_t*)&h, (uintptr_t)p, sizeof(EspFsHeader));
 
 		if (h.magic!=ESPFS_MAGIC) {
 			httpd_printf("Magic mismatch. EspFS image broken.\n");
@@ -152,15 +165,19 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 			return NULL;
 		}
 		//Grab the name of the file.
-		p+=sizeof(EspFsHeader); 
-		spi_flash_read((uint32)p, (uint32*)&namebuf, sizeof(namebuf));
-//		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n", 
-//				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
+		p+=sizeof(EspFsHeader);
+		readFlashAligned((uint32_t*)&namebuf, (uintptr_t)p, sizeof(namebuf));
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n",
+				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
+#endif
 		if (strcmp(namebuf, fileName)==0) {
 			//Yay, this is the file we need!
 			p+=h.nameLen; //Skip to content.
 			r=(EspFsFile *)malloc(sizeof(EspFsFile)); //Alloc file desc mem
-//			httpd_printf("Alloc %p\n", r);
+#ifdef VERBOSE_OUTPUT
+			httpd_printf("Alloc %p\n", r);
+#endif
 			if (r==NULL) return NULL;
 			r->header=(EspFsHeader *)hpos;
 			r->decompressor=h.compression;
@@ -190,7 +207,7 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
 		}
 		//We don't need this file. Skip name and file
 		p+=h.nameLen+h.fileLenComp;
-		if ((int)p&3) p+=4-((int)p&3); //align to next 32bit val
+		if ((uintptr_t)p&3) p+=4-((uintptr_t)p&3); //align to next 32bit val
 	}
 }
 
@@ -201,7 +218,7 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 	int fdlen;
 #endif
 	if (fh==NULL) return 0;
-		
+
 	readFlashUnaligned((char*)&flen, (char*)&fh->header->fileLenComp, 4);
 	//Cache file length.
 	//Do stuff depending on the way the file is compressed.
@@ -209,11 +226,15 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		int toRead;
 		toRead=flen-(fh->posComp-fh->posStart);
 		if (len>toRead) len=toRead;
-//		httpd_printf("Reading %d bytes from %x\n", len, (unsigned int)fh->posComp);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Reading %d bytes from %x\n", len, (unsigned int)fh->posComp);
+#endif
 		readFlashUnaligned(buff, fh->posComp, len);
 		fh->posDecomp+=len;
 		fh->posComp+=len;
-//		httpd_printf("Done reading %d bytes, pos=%x\n", len, fh->posComp);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Done reading %d bytes, pos=%x\n", len, fh->posComp);
+#endif
 		return len;
 #ifdef ESPFS_HEATSHRINK
 	} else if (fh->decompressor==COMPRESS_HEATSHRINK) {
@@ -222,7 +243,9 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		size_t elen, rlen;
 		char ebuff[16];
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
-//		httpd_printf("Alloc %p\n", dec);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Alloc %p\n", dec);
+#endif
 		if (fh->posDecomp == fdlen) {
 			return 0;
 		}
@@ -246,11 +269,15 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 			buff+=rlen;
 			decoded+=rlen;
 
-//			httpd_printf("Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
+#ifdef VERBOSE_OUTPUT
+			httpd_printf("Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
+#endif
 
 			if (elen == 0) {
 				if (fh->posDecomp == fdlen) {
-//					httpd_printf("Decoder finish\n");
+#ifdef VERBOSE_OUTPUT
+					httpd_printf("Decoder finish\n");
+#endif
 					heatshrink_decoder_finish(dec);
 				}
 				return decoded;
@@ -269,12 +296,15 @@ void ICACHE_FLASH_ATTR espFsClose(EspFsFile *fh) {
 	if (fh->decompressor==COMPRESS_HEATSHRINK) {
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);
-//		httpd_printf("Freed %p\n", dec);
+#ifdef VERBOSE_OUTPUT
+		httpd_printf("Freed %p\n", dec);
+#endif
 	}
 #endif
-//	httpd_printf("Freed %p\n", fh);
+
+#ifdef VERBOSE_OUTPUT
+	httpd_printf("Freed %p\n", fh);
+#endif
+
 	free(fh);
 }
-
-
-

@@ -1,7 +1,7 @@
 #ifndef HTTPD_H
 #define HTTPD_H
 
-#define HTTPDVER "0.4"
+#define HTTPDVER "0.5"
 
 //Max length of request head. This is statically allocated for each connection.
 #define HTTPD_MAX_HEAD_LEN		1024
@@ -14,29 +14,38 @@
 //size of the backlog.
 #define HTTPD_MAX_BACKLOG_SIZE	(4*1024)
 
-#define HTTPD_CGI_MORE 0
-#define HTTPD_CGI_DONE 1
-#define HTTPD_CGI_NOTFOUND 2
-#define HTTPD_CGI_AUTHENTICATED 3
+typedef enum
+{
+	HTTPD_CGI_MORE,
+	HTTPD_CGI_DONE,
+	HTTPD_CGI_NOTFOUND,
+	HTTPD_CGI_AUTHENTICATED
+} CgiStatus;
 
-#define HTTPD_METHOD_GET 1
-#define HTTPD_METHOD_POST 2
+typedef enum
+{
+	HTTPD_METHOD_GET,
+	HTTPD_METHOD_POST,
+} RequestTypes;
 
-#define HTTPD_TRANSFER_CLOSE 0
-#define HTTPD_TRANSFER_CHUNKED 1
-#define HTTPD_TRANSFER_NONE 2
+typedef enum
+{
+	HTTPD_TRANSFER_CLOSE,
+	HTTPD_TRANSFER_CHUNKED,
+	HTTPD_TRANSFER_NONE
+} TransferModes;
 
 typedef struct HttpdPriv HttpdPriv;
 typedef struct HttpdConnData HttpdConnData;
 typedef struct HttpdPostData HttpdPostData;
 
-typedef int (* cgiSendCallback)(HttpdConnData *connData);
-typedef int (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
+typedef CgiStatus (* cgiSendCallback)(HttpdConnData *connData);
+typedef CgiStatus (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
 
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
 	ConnTypePtr conn;		// The TCP connection. Exact type depends on the platform.
-	char requestType;		// One of the HTTPD_METHOD_* values
+	RequestTypes requestType;
 	char *url;				// The URL requested, without hostname or GET arguments
 	char *getArgs;			// The GET arguments for this request, if any.
 	const void *cgiArg;		// Argument to the CGI function, as stated as the 3rd argument of
@@ -48,8 +57,8 @@ struct HttpdConnData {
 	cgiRecvHandler recvHdl;	// Handler for data received after headers, if any
 	HttpdPostData *post;	// POST data structure
 	int remote_port;		// Remote TCP port
-	uint8 remote_ip[4];		// IP address of client
-	uint8 slot;				// Slot ID
+	uint8_t remote_ip[4];	// IP address of client
+	uint8_t slot;			// Slot ID
 };
 
 //A struct describing the POST data sent inside the http connection.  This is used by the CGI functions
@@ -70,19 +79,36 @@ typedef struct {
 	const void *cgiArg;
 } HttpdBuiltInUrl;
 
-int cgiRedirect(HttpdConnData *connData);
-int cgiRedirectToHostname(HttpdConnData *connData);
-int cgiRedirectApClientToHostname(HttpdConnData *connData);
-void httpdRedirect(HttpdConnData *conn, char *newUrl);
+CgiStatus cgiRedirect(HttpdConnData *connData);
+CgiStatus cgiRedirectToHostname(HttpdConnData *connData);
+CgiStatus cgiRedirectApClientToHostname(HttpdConnData *connData);
+void httpdRedirect(HttpdConnData *conn, const char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
-void httpdInit(HttpdBuiltInUrl *fixedUrls, int port);
-const char *httpdGetMimetype(char *url);
-void httdSetTransferMode(HttpdConnData *conn, int mode);
+
+typedef enum
+{
+	HTTPD_FLAG_NONE = (1 << 0),
+	HTTPD_FLAG_SSL = (1 << 1)
+} HttpdFlags;
+
+typedef enum
+{
+	InitializationSuccess,
+	FeatureFlagMismatch
+} HttpdInitStatus;
+
+HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
+
+/* NOTE: listenAddress is in network byte order */
+HttpdInitStatus httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
+
+const char *httpdGetMimetype(const char *url);
+void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
 void httpdHeader(HttpdConnData *conn, const char *field, const char *val);
 void httpdEndHeaders(HttpdConnData *conn);
-int httpdGetHeader(HttpdConnData *conn, char *header, char *ret, int retLen);
+int httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen);
 int httpdSend(HttpdConnData *conn, const char *data, int len);
 void httpdFlushSendBuffer(HttpdConnData *conn);
 void httpdContinue(HttpdConnData *conn);

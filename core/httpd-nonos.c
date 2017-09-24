@@ -1,10 +1,14 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /*
 ESP8266 web server - platform-dependent routines, nonos version
 */
 
-#include <esp8266.h>
-#include "httpd.h"
-#include "platform.h"
+#include <libesphttpd/esp.h>
+#include "libesphttpd/httpd.h"
+#include "libesphttpd/platform.h"
 #include "httpd-platform.h"
 
 #ifndef FREERTOS
