@@ -100,7 +100,7 @@ HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags
 /* NOTE: listenAddress is in network byte order */
 HttpdInitStatus httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
 
-const char *httpdGetMimetype(char *url);
+const char *httpdGetMimetype(const char *url);
 void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
 void httpdHeader(HttpdConnData *conn, const char *field, const char *val);

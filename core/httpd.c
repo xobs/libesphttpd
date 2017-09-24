@@ -80,11 +80,12 @@ static const ICACHE_RODATA_ATTR MimeMap mimeTypes[]={
 };
 
 //Returns a static char* to a mime type for a given url to a file.
-const char ICACHE_FLASH_ATTR *httpdGetMimetype(char *url) {
+const char ICACHE_FLASH_ATTR *httpdGetMimetype(const char *url) {
+	char *urlp = (char*)url;
 	int i=0;
 	//Go find the extension
-	char *ext=url+(strlen(url)-1);
-	while (ext!=url && *ext!='.') ext--;
+	char *ext=urlp+(strlen(urlp)-1);
+	while (ext!=urlp && *ext!='.') ext--;
 	if (*ext=='.') ext++;
 
 	//ToDo: strcmp is case sensitive; we may want to do case-intensive matching here...
