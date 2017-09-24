@@ -105,7 +105,7 @@ void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
 void httpdHeader(HttpdConnData *conn, const char *field, const char *val);
 void httpdEndHeaders(HttpdConnData *conn);
-int httpdGetHeader(HttpdConnData *conn, char *header, char *ret, int retLen);
+int httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen);
 int httpdSend(HttpdConnData *conn, const char *data, int len);
 void httpdFlushSendBuffer(HttpdConnData *conn);
 void httpdContinue(HttpdConnData *conn);
