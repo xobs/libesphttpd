@@ -269,7 +269,7 @@ void ICACHE_FLASH_ATTR httpdRedirect(HttpdConnData *conn, const char *newUrl) {
 }
 
 //Use this as a cgi function to redirect one url to another.
-int ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
@@ -279,7 +279,7 @@ int ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
 }
 
 //Used to spit out a 404 error
-static int ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
+static CgiStatus ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 	if (connData->conn==NULL) return HTTPD_CGI_DONE;
 	httpdStartResponse(connData, 404);
 	httpdEndHeaders(connData);
@@ -292,7 +292,7 @@ static int ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 //ESP in order to load a HTML page as soon as a phone, tablet etc connects to the ESP. Watch out:
 //this will also redirect connections when the ESP is in STA mode, potentially to a hostname that is not
 //in the 'official' DNS and so will fail.
-int ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 	static const char hostFmt[]="http://%s/";
 	char *buff;
 	int isIP=0;
@@ -333,7 +333,7 @@ int ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 //Same as above, but will only redirect clients with an IP that is in the range of
 //the SoftAP interface. This should preclude clients connected to the STA interface
 //to be redirected to nowhere.
-int ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRedirectApClientToHostname(HttpdConnData *connData) {
 #ifdef linux
 	return HTTPD_CGI_NOTFOUND;
 #else

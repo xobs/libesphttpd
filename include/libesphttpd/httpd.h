@@ -14,10 +14,13 @@
 //size of the backlog.
 #define HTTPD_MAX_BACKLOG_SIZE	(4*1024)
 
-#define HTTPD_CGI_MORE 0
-#define HTTPD_CGI_DONE 1
-#define HTTPD_CGI_NOTFOUND 2
-#define HTTPD_CGI_AUTHENTICATED 3
+typedef enum
+{
+	HTTPD_CGI_MORE,
+	HTTPD_CGI_DONE,
+	HTTPD_CGI_NOTFOUND,
+	HTTPD_CGI_AUTHENTICATED
+} CgiStatus;
 
 typedef enum
 {
@@ -36,8 +39,8 @@ typedef struct HttpdPriv HttpdPriv;
 typedef struct HttpdConnData HttpdConnData;
 typedef struct HttpdPostData HttpdPostData;
 
-typedef int (* cgiSendCallback)(HttpdConnData *connData);
-typedef int (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
+typedef CgiStatus (* cgiSendCallback)(HttpdConnData *connData);
+typedef CgiStatus (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
 
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
@@ -76,9 +79,9 @@ typedef struct {
 	const void *cgiArg;
 } HttpdBuiltInUrl;
 
-int cgiRedirect(HttpdConnData *connData);
-int cgiRedirectToHostname(HttpdConnData *connData);
-int cgiRedirectApClientToHostname(HttpdConnData *connData);
+CgiStatus cgiRedirect(HttpdConnData *connData);
+CgiStatus cgiRedirectToHostname(HttpdConnData *connData);
+CgiStatus cgiRedirectApClientToHostname(HttpdConnData *connData);
 void httpdRedirect(HttpdConnData *conn, const char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);

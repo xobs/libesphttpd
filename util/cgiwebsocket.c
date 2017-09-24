@@ -159,7 +159,7 @@ static void ICACHE_FLASH_ATTR websockFree(Websock *ws) {
 	if (ws->priv) free(ws->priv);
 }
 
-int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int len) {
+CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int len) {
 	int i, j, sl;
 	int r=HTTPD_CGI_MORE;
 	int wasHeaderByte;
@@ -272,7 +272,7 @@ int ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int 
 }
 
 //Websocket 'cgi' implementation
-int ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 	char buff[256];
 	int i;
 	sha1nfo s;

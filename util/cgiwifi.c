@@ -117,7 +117,7 @@ static void ICACHE_FLASH_ATTR wifiStartScan() {
 //This CGI is called from the bit of AJAX-code in wifi.tpl. It will initiate a
 //scan for access points and if available will return the result of an earlier scan.
 //The result is embedded in a bit of JSON parsed by the javascript in wifi.tpl.
-int ICACHE_FLASH_ATTR cgiWiFiScan(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWiFiScan(HttpdConnData *connData) {
 #ifndef ESP32
 	int pos=(int)connData->cgiData;
 	int len;
@@ -210,7 +210,7 @@ static void ICACHE_FLASH_ATTR reassTimerCb(void *arg) {
 
 //This cgi uses the routines above to connect to a specific access point with the
 //given ESSID using the given password.
-int ICACHE_FLASH_ATTR cgiWiFiConnect(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWiFiConnect(HttpdConnData *connData) {
 #ifndef ESP32
 	char essid[128];
 	char passwd[128];
@@ -244,7 +244,7 @@ int ICACHE_FLASH_ATTR cgiWiFiConnect(HttpdConnData *connData) {
 
 //This cgi uses the routines above to connect to a specific access point with the
 //given ESSID using the given password.
-int ICACHE_FLASH_ATTR cgiWiFiSetMode(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWiFiSetMode(HttpdConnData *connData) {
 #ifndef ESP32
 	int len;
 	char buff[1024];
@@ -267,7 +267,7 @@ int ICACHE_FLASH_ATTR cgiWiFiSetMode(HttpdConnData *connData) {
 	return HTTPD_CGI_DONE;
 }
 
-int ICACHE_FLASH_ATTR cgiWiFiConnStatus(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiWiFiConnStatus(HttpdConnData *connData) {
 #ifndef ESP32
 	char buff[1024];
 	int len;

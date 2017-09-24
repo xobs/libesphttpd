@@ -3,11 +3,11 @@
 
 #include "httpd.h"
 
-int cgiWiFiScan(HttpdConnData *connData);
+CgiStatus cgiWiFiScan(HttpdConnData *connData);
 int tplWlan(HttpdConnData *connData, char *token, void **arg);
-int cgiWiFi(HttpdConnData *connData);
-int cgiWiFiConnect(HttpdConnData *connData);
-int cgiWiFiSetMode(HttpdConnData *connData);
-int cgiWiFiConnStatus(HttpdConnData *connData);
+CgiStatus cgiWiFi(HttpdConnData *connData);
+CgiStatus cgiWiFiConnect(HttpdConnData *connData);
+CgiStatus cgiWiFiSetMode(HttpdConnData *connData);
+CgiStatus cgiWiFiConnStatus(HttpdConnData *connData);
 
 #endif

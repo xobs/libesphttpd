@@ -143,7 +143,7 @@ POST-arguments.
 A simple CGI function may, for example, greet the user with a name given as a GET argument:
 
 ```c
-int ICACHE_FLASH_ATTR cgiGreetUser(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiGreetUser(HttpdConnData *connData) {
 	int len;			//length of user name
 	char name[128];		//Temporary buffer for name
 	char output[256];	//Temporary buffer for HTML output
@@ -227,7 +227,7 @@ static char *longString="Please assume this is a very long string, way too long 
 		"in one time because it won't fit in the send buffer in it's entirety; we have to"\
 		"break up sending it in multiple parts."
 
-int ICACHE_FLASH_ATTR cgiSendLongString(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiSendLongString(HttpdConnData *connData) {
 	LongStringState *state=connData->cgiData;
 	int len;
 	
@@ -323,7 +323,7 @@ When this URL is requested, the words between percent characters will invoke the
 it to output specific data. For example:
 
 ```c
-int ICACHE_FLASH_ATTR tplShowName(HttpdConnData *connData, char *token, void **arg) {
+CgiStatus ICACHE_FLASH_ATTR tplShowName(HttpdConnData *connData, char *token, void **arg) {
 	if (token==NULL) return HTTPD_CGI_DONE;
 
 	if (os_strcmp(token, "username")==0) httpdSend(connData, "John Doe", -1);
