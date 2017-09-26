@@ -37,6 +37,9 @@ typedef enum
 {
 	HTTPD_METHOD_GET,
 	HTTPD_METHOD_POST,
+	HTTPD_METHOD_PUT,
+	HTTPD_METHOD_PATCH,
+	HTTPD_METHOD_DELETE
 } RequestTypes;
 
 typedef enum
