@@ -21,6 +21,13 @@ config ESPHTTPD_STACK_SIZE
 	help
 		Stack size reserved for the esp-httpd main task plus CGIs.
 
+config ESPHTTPD_CORS_SUPPORT
+    bool "CORS support"
+        depends on ESPHTTPD_ENABLED
+    help
+        Enable support for CORS, cross origin resource sharing.
+        NOTE: Requires 256 bytes of RAM for each connection (ESPHTTD_MAX_CONNECTIONS)
+
 config ESPHTTPD_HTMLDIR
 	string "Directory (on the build machine) where the static files served by the webserver are"
         depends on ESPHTTPD_ENABLED

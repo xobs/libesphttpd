@@ -25,6 +25,9 @@
 #define HTTPD_MAX_BACKLOG_SIZE	(4*1024)
 #endif
 
+//Max length of CORS token. This amount is allocated per connection.
+#define MAX_CORS_TOKEN_LEN 256
+
 typedef enum
 {
 	HTTPD_CGI_MORE,

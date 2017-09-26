@@ -40,6 +40,9 @@ struct HttpSendBacklogItem {
 //Private data for http connection
 struct HttpdPriv {
 	char head[HTTPD_MAX_HEAD_LEN];
+#if CONFIG_ESPHTTPD_CORS_SUPPORT
+	char corsToken[MAX_CORS_TOKEN_LEN];
+#endif
 	int headPos;
 	char *sendBuff;
 	int sendBuffLen;
@@ -243,6 +246,12 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 			code,
 			connStr);
 	httpdSend(conn, buff, l);
+
+#if CONFIG_ESPHTTPD_CORS_SUPPORT
+	// CORS headers
+	httpdSend(conn, "Access-Control-Allow-Origin: *\r\n", -1);
+	httpdSend(conn, "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n", -1);
+#endif
 }
 
 //Send a http header.
@@ -531,6 +540,20 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 		httpd_printf("WtF? url = NULL\n");
 		return; //Shouldn't happen
 	}
+
+#if CONFIG_ESPHTTPD_CORS_SUPPORT
+	// CORS preflight, allow the token we received before
+	if (conn->requestType == HTTPD_METHOD_OPTIONS) {
+		httpdStartResponse(conn, 200);
+		httpdHeader(conn, "Access-Control-Allow-Headers", conn->priv->corsToken);
+		httpdEndHeaders(conn);
+		httpdCgiIsDone(conn);
+
+		httpd_printf("CORS preflight resp sent.\n");
+		return;
+	}
+#endif
+
 	//See if we can find a CGI that's happy to handle the request.
 	while (1) {
 		//Look up URL in the built-in URL table.
@@ -674,6 +697,15 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 			}
 		}
 	}
+#if CONFIG_ESPHTTPD_CORS_SUPPORT
+	else if (strncmp(h, "Access-Control-Request-Headers: ", 32)==0) {
+		// CORS token must be repeated in the response, copy it into
+		// the connection token storage
+		httpd_printf("CORS preflight request.\n");
+
+		strncpy(conn->priv->corsToken, h+strlen("Access-Control-Request-Headers: "), MAX_CORS_TOKEN_LEN);
+	}
+#endif
 }
 
 //Make a connection 'live' so we can do all the things a cgi can do to it.
@@ -717,6 +749,9 @@ void ICACHE_FLASH_ATTR httpdRecvCb(ConnTypePtr rconn, char *remIp, int remPort, 
 	}
 	conn->priv->sendBuff=sendBuff;
 	conn->priv->sendBuffLen=0;
+#if CONFIG_ESPHTTPD_CORS_SUPPORT
+	conn->priv->corsToken[0] = 0;
+#endif
 
 	//This is slightly evil/dirty: we abuse conn->post->len as a state variable for where in the http communications we are:
 	//<0 (-1): Post len unknown because we're still receiving headers
