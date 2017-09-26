@@ -26,7 +26,6 @@ typedef int32_t int32;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <user_interface.h>
 
 #ifdef FREERTOS
 #include <stdint.h>
@@ -46,9 +45,9 @@ typedef int32_t int32;
 #include <gpio.h>
 #include <mem.h>
 #include <osapi.h>
+#include <user_interface.h>
 #include <upgrade.h>
 #endif
 
 #include "platform.h"
 #include "espmissingincludes.h"
-
