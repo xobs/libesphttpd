@@ -78,7 +78,7 @@ a memory exception, crashing the program.
 
 //ToDo: perhaps memcpy also does unaligned accesses?
 #if defined(__ets__) && !defined(ESP32)
-void ICACHE_FLASH_ATTR readFlashUnaligned(char *dst, char *src, int len) {
+void ICACHE_FLASH_ATTR readFlashUnaligned(char *dst, const char *src, int len) {
 	uint8_t src_offset = ((uint32_t)src) & 3;
 	uint32_t src_address = ((uint32_t)src) - src_offset;
 
@@ -138,7 +138,7 @@ int ICACHE_FLASH_ATTR espFsFlags(EspFsFile *fh) {
 }
 
 //Open a file and return a pointer to the file desc struct.
-EspFsFile ICACHE_FLASH_ATTR *espFsOpen(char *fileName) {
+EspFsFile ICACHE_FLASH_ATTR *espFsOpen(const char *fileName) {
 	if (espFsData == NULL) {
 		httpd_printf("Call espFsInit first!\n");
 		return NULL;
