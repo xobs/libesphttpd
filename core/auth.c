@@ -16,7 +16,7 @@ HTTP auth implementation. Only does basic authentication for now.
 #include "base64.h"
 
 int ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
-	const char *forbidden="401 Forbidden.";
+	const char *unauthorized = "401 Unauthorized.";
 	int no=0;
 	int r;
 	char hdr[(AUTH_MAX_USER_LEN+AUTH_MAX_PASS_LEN+2)*10];
@@ -53,7 +53,7 @@ int ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
 	httpdHeader(connData, "Content-Type", "text/plain");
 	httpdHeader(connData, "WWW-Authenticate", "Basic realm=\""HTTP_AUTH_REALM"\"");
 	httpdEndHeaders(connData);
-	httpdSend(connData, forbidden, -1);
+	httpdSend(connData, unauthorized, -1);
 	//Okay, all done.
 	return HTTPD_CGI_DONE;
 }
