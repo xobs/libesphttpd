@@ -15,7 +15,14 @@
 //#include "esp_timer.h"
 typedef struct RtosConnType RtosConnType;
 typedef RtosConnType* ConnTypePtr;
+
+#ifdef ESP32
+// freertos v8 api
 typedef TimerHandle_t HttpdPlatTimerHandle;
+#else
+// freertos v7 api
+typedef xTimerHandle HttpdPlatTimerHandle;
+#endif
 
 #ifndef ESP32 //esp32 does not need this because it can map flash into D-port memory
 #define httpd_printf(fmt, ...) do {	\

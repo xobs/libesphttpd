@@ -491,21 +491,25 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle handle) {
 }
 #else
 HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx) {
-	TimerHandle_t ret;
+	HttpdPlatTimerHandle ret;
+#ifdef ESP32
 	ret=xTimerCreate(name, pdMS_TO_TICKS(periodMs), autoreload?pdTRUE:pdFALSE, ctx, callback);
-	return (HttpdPlatTimerHandle)ret;
+#else
+	ret=xTimerCreate((const signed char * const)name, (periodMs / portTICK_RATE_MS), autoreload?pdTRUE:pdFALSE, ctx, callback);
+#endif
+	return ret;
 }
 
 void httpdPlatTimerStart(HttpdPlatTimerHandle timer) {
-	xTimerStart((TimerHandle_t)timer, 0);
+	xTimerStart(timer, 0);
 }
 
 void httpdPlatTimerStop(HttpdPlatTimerHandle timer) {
-	xTimerStop((TimerHandle_t)timer, 0);
+	xTimerStop(timer, 0);
 }
 
 void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
-	xTimerDelete((TimerHandle_t)timer, 0);
+	xTimerDelete(timer, 0);
 }
 #endif
 
