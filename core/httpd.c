@@ -171,11 +171,12 @@ int ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLe
 int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLen) {
 	char *p, *e;
 	if (line==NULL) return -1;
+	const int arglen = strlen(arg);
 	p=line;
 	while(p!=NULL && *p!='\n' && *p!='\r' && *p!=0) {
 //		httpd_printf("findArg: %s\n", p);
-		if (strncmp(p, arg, strlen(arg))==0 && p[strlen(arg)]=='=') {
-			p+=strlen(arg)+1; //move p to start of value
+		if (strncmp(p, arg, arglen)==0 && p[arglen]=='=') {
+			p+=arglen+1; //move p to start of value
 			e=(char*)strstr(p, "&");
 			if (e==NULL) e=p+strlen(p);
 //			httpd_printf("findArg: val %s len %d\n", p, (e-p));
