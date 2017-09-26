@@ -1,7 +1,4 @@
-// Combined include file for esp8266
-// Actually misnamed, as it also works for ESP32.
-// ToDo: Figure out better name
-
+// Combined include file for esp8266 and esp32
 
 #ifdef ESP_PLATFORM //only set in esp-idf
 #define FREERTOS 1
