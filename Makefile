@@ -16,6 +16,7 @@ USE_OPENSDK ?= no
 HTTPD_MAX_CONNECTIONS ?= 4
 #For FreeRTOS
 HTTPD_STACKSIZE ?= 2048
+ENABLE_SSL_SUPPORT ?= no
 #Auto-detect ESP32 build if not given.
 ifneq (,$(wildcard $(SDK_PATH)/include/esp32))
 ESP32 ?= yes
@@ -151,6 +152,10 @@ endif
 
 ifeq ("$(HTTPD_WEBSOCKETS)","yes")
 CFLAGS		+= -DHTTPD_WEBSOCKETS
+endif
+
+ifeq ("$(ENABLE_SSL_SUPPORT)", "yes")
+CFLAGS		+= -DCONFIG_ESPHTTPD_SSL_SUPPORT=1
 endif
 
 vpath %.c $(SRC_DIR)
