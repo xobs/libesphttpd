@@ -88,8 +88,7 @@ const char ICACHE_FLASH_ATTR *httpdGetMimetype(const char *url) {
 	while (ext!=urlp && *ext!='.') ext--;
 	if (*ext=='.') ext++;
 
-	//ToDo: strcmp is case sensitive; we may want to do case-intensive matching here...
-	while (mimeTypes[i].ext!=NULL && strcmp(ext, mimeTypes[i].ext)!=0) i++;
+	while (mimeTypes[i].ext!=NULL && strcasecmp(ext, mimeTypes[i].ext)!=0) i++;
 	return mimeTypes[i].mimetype;
 }
 
