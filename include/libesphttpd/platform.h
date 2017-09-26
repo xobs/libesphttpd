@@ -29,7 +29,7 @@ typedef TimerHandle_t HttpdPlatTimerHandle;
 #define ICACHE_FLASH_ATTR
 #endif
 
-#elif linux
+#elif defined(linux)
 
 #include <stdbool.h>
 typedef struct RtosConnType RtosConnType;
