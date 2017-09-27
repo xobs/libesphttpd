@@ -159,6 +159,14 @@ ifeq ("$(ENABLE_SSL_SUPPORT)", "yes")
 CFLAGS		+= -DCONFIG_ESPHTTPD_SSL_SUPPORT=1
 endif
 
+ifeq ("$(ENABLE_CORS_SUPPORT)", "yes")
+CFLAGS		+= -DCONFIG_ESPHTTPD_CORS_SUPPORT=1
+endif
+
+ifeq ("$(ESP32)", "yes")
+CFLAGS		+= -DESP32=1
+endif
+
 vpath %.c $(SRC_DIR)
 
 define compile-objects
