@@ -17,6 +17,7 @@ HTTPD_MAX_CONNECTIONS ?= 4
 #For FreeRTOS
 HTTPD_STACKSIZE ?= 2048
 ENABLE_SSL_SUPPORT ?= no
+ENABLE_CORS_SUPPORT ?= no
 #Auto-detect ESP32 build if not given.
 ifneq (,$(wildcard $(SDK_PATH)/include/esp32))
 ESP32 ?= yes
