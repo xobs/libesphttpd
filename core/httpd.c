@@ -40,7 +40,7 @@ struct HttpSendBacklogItem {
 //Private data for http connection
 struct HttpdPriv {
 	char head[HTTPD_MAX_HEAD_LEN];
-#if CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	char corsToken[MAX_CORS_TOKEN_LEN];
 #endif
 	int headPos;
@@ -247,7 +247,7 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 			connStr);
 	httpdSend(conn, buff, l);
 
-#if CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	// CORS headers
 	httpdSend(conn, "Access-Control-Allow-Origin: *\r\n", -1);
 	httpdSend(conn, "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n", -1);
@@ -541,7 +541,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 		return; //Shouldn't happen
 	}
 
-#if CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	// CORS preflight, allow the token we received before
 	if (conn->requestType == HTTPD_METHOD_OPTIONS) {
 		httpdStartResponse(conn, 200);
@@ -697,7 +697,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 			}
 		}
 	}
-#if CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	else if (strncmp(h, "Access-Control-Request-Headers: ", 32)==0) {
 		// CORS token must be repeated in the response, copy it into
 		// the connection token storage
@@ -749,7 +749,7 @@ void ICACHE_FLASH_ATTR httpdRecvCb(ConnTypePtr rconn, char *remIp, int remPort, 
 	}
 	conn->priv->sendBuff=sendBuff;
 	conn->priv->sendBuffLen=0;
-#if CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	conn->priv->corsToken[0] = 0;
 #endif
 
