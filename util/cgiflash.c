@@ -16,7 +16,7 @@ Some flash handling cgi routines. Used for updating the ESPFS/OTA image.
 #include "libesphttpd/cgiflash.h"
 #include "libesphttpd/espfs.h"
 #include "httpd-platform.h"
-#if ESP32
+#ifdef ESP32
 #include "esp32_flash.h"
 #endif
 
@@ -27,7 +27,7 @@ Some flash handling cgi routines. Used for updating the ESPFS/OTA image.
 // Check that the header of the firmware blob looks like actual firmware...
 static int ICACHE_FLASH_ATTR checkBinHeader(void *buf) {
 	uint8_t *cd = (uint8_t *)buf;
-#if ESP32
+#ifdef ESP32
 	printf("checkBinHeader: %x %x %x\n", cd[0], ((uint16_t *)buf)[3], ((uint32_t *)buf)[0x6]);
 	if (cd[0] != 0xE9) return 0;
 	if (((uint16_t *)buf)[3] != 0x4008) return 0;
@@ -194,7 +194,7 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 				httpd_printf("Combined flash image not supported on ESP32!\n");
 #endif
 			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post->buff)) {
-#if !ESP32
+#ifndef ESP32
 				if (connData->post->len > def->fwSize) {
 					state->err="Firmware image too large";
 					state->state=FLST_ERROR;
@@ -311,7 +311,7 @@ int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 static HttpdPlatTimerHandle resetTimer;
 
 static void ICACHE_FLASH_ATTR resetTimerCb(void *arg) {
-#if !ESP32
+#ifndef ESP32
 	system_upgrade_flag_set(UPGRADE_FLAG_FINISH);
 	system_upgrade_reboot();
 #else
