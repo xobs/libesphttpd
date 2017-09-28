@@ -89,7 +89,34 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_
 	espconn_regist_connectcb(&httpdConn, platConnCb);
 	espconn_accept(&httpdConn);
 	espconn_tcp_set_max_con_allow(&httpdConn, maxConnCt);
+
+	return InitializationSuccess;
 }
 
+HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx)
+{
+	HttpdPlatTimerHandle newTimer = malloc(sizeof(HttpdPlatTimerHandle));
+	os_timer_setfn(&newTimer->timer, callback, ctx);
+
+	// store the timer settings into the structure as we want to capture them here but
+	// can't apply them until the timer is armed
+	newTimer->autoReload = autoreload;
+	newTimer->timerPeriodMS = periodMs;
+
+	return newTimer;
+}
+
+void httpdPlatTimerStart(HttpdPlatTimerHandle timer) {
+	os_timer_arm(&timer->timer, timer->timerPeriodMS, timer->autoReload);
+}
+
+void httpdPlatTimerStop(HttpdPlatTimerHandle timer) {
+	os_timer_disarm(&timer->timer);
+}
+
+void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
+	os_timer_disarm(&timer->timer);
+	free(timer);
+}
 
 #endif

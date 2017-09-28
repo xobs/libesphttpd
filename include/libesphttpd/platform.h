@@ -63,6 +63,13 @@ typedef HttpdPlatTimer* HttpdPlatTimerHandle;
 
 #else // no-os, map to os-specific versions that have to be defined
 
+typedef struct
+{
+	os_timer_t timer;
+	int timerPeriodMS;
+	bool autoReload;
+} HttpdPlatTimer;
+
 #define printf(...) os_printf(__VA_ARGS__)
 #define sprintf(str, ...) os_sprintf(str, __VA_ARGS__)
 #define strcpy(a, b) os_strcpy(a, b)
@@ -78,8 +85,7 @@ typedef HttpdPlatTimer* HttpdPlatTimerHandle;
 #define strlen(a) os_strlen(a)
 #define memcmp(a, b, c) os_memcmp(a, b, c)
 typedef struct espconn* ConnTypePtr;
-typedef struct HttpdPlatTimer HttpdPlatTimer;
-typedef *HttpdPlatTimer HttpdPlatTimerHandle;
+typedef HttpdPlatTimer* HttpdPlatTimerHandle;
 #define httpd_printf(format, ...) os_printf(format, ##__VA_ARGS__)
 #endif
 
