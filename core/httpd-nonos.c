@@ -78,7 +78,10 @@ void ICACHE_FLASH_ATTR httpdPlatDisableTimeout(ConnTypePtr conn) {
 }
 
 //Initialize listening socket, do general initialization
-void ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt) {
+HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress, HttpdFlags flags) {
+	// TODO: check flags
+	// TODO: handle listenAddress
+
 	httpdConn.type=ESPCONN_TCP;
 	httpdConn.state=ESPCONN_NONE;
 	httpdTcp.local_port=port;
