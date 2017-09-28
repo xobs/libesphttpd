@@ -12,6 +12,8 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 /* Copyright 2017 Jeroen Domburg <git@j0h.nl> */
 /* Copyright 2017 Chris Morgan <chmorgan@gmail.com> */
 
+#if defined(linux) || defined(FREERTOS)
+
 #ifdef linux
 #include <libesphttpd/linux.h>
 #include <netinet/in.h>
@@ -32,15 +34,13 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-#endif
 
-#ifndef linux
 #ifdef ESP32
 #include "lwip/sockets.h"
 #else
 #include "lwip/lwip/sockets.h"
 #endif
-#endif
+#endif // #ifdef FREERTOS
 
 static int httpPort;
 static int httpMaxConnCt;
@@ -551,3 +551,5 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_
 
 	return status;
 }
+
+#endif
