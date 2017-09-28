@@ -54,6 +54,12 @@ EXTRA_INCDIR	= ./include \
 					lib/heatshrink/
 
 
+# for non-os builds osapi.h includes "user_config.h" so we have to ensure that
+# the include/libesphttpd folder is in the include path so this file can be found
+ifeq ("$(FREERTOS)","no")
+EXTRA_INCDIR	+= ./include/libesphttpd
+endif
+
 # compiler flags using during compilation of source files
 CFLAGS		= -Os -ggdb -std=c99 -Werror -Wpointer-arith -Wundef -Wall -Wl,-EL -fno-inline-functions \
 		-nostdlib -mlongcalls -mtext-section-literals  -D__ets__ -DICACHE_FLASH \
