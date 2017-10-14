@@ -54,9 +54,9 @@ static xQueueHandle httpdMux;
 #endif
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-#include "openssl/ssl.h"
+#include <openssl/ssl.h>
 #ifdef linux
-#include "openssl/err.h"
+#include <openssl/err.h>
 #endif
 SSL_CTX *ctx;
 #endif
