@@ -408,6 +408,9 @@ static void platHttpServerTask(void *pvParameters) {
 			}
 		}
 	}
+#ifdef linux
+	return NULL;
+#endif
 }
 
 #ifdef linux
