@@ -30,8 +30,13 @@ add_library(esphttpd
     util/cgiwebsocket.c
 )
 
+set(ENABLE_SSL_SUPPORT 1)
+
 target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_MAX_CONNECTIONS=100")
-target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SSL_SUPPORT=1")
+
+if(ENABLE_SSL_SUPPORT)
+    target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SSL_SUPPORT=1")
+endif()
 
 target_include_directories(esphttpd PUBLIC "core")
 target_include_directories(esphttpd PUBLIC "include")
@@ -45,6 +50,12 @@ add_executable(mkespfsimage
 
 find_package(ZLIB REQUIRED)
 target_link_libraries(mkespfsimage ${ZLIB_LIBRARIES})
+
+if(ENABLE_SSL_SUPPORT)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(esphttpd ${OPENSSL_LIBRARIES})
+    include_directories(${OPENSSL_INCLUDE_DIRS})
+endif()
 
 target_compile_definitions(mkespfsimage PUBLIC "ESPFS_HEATSHRINK=1")
 target_compile_definitions(mkespfsimage PUBLIC "ESPFS_GZIP=1")
