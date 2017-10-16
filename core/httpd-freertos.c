@@ -392,7 +392,25 @@ static void platHttpServerTask(void *pvParameters) {
 						closeConnection(&rconn[x]);
 					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-					ret = SSL_read(rconn[x].ssl, precvbuf, RECV_BUF_SIZE - 1);
+					int bytesStillAvailable;
+
+					// NOTE: we repeat the call to SSL_read() and process data
+					// while SSL indicates there is still pending data.
+					//
+					// select() isn't detecting available data, this
+					// re-read approach resolves an issue where data is stuck in
+					// SSL internal buffers
+					do {
+						ret = SSL_read(rconn[x].ssl, precvbuf, RECV_BUF_SIZE - 1);
+
+						bytesStillAvailable = SSL_has_pending(rconn[x].ssl);
+
+						int ssl_error;
+						if(ret <= 0)
+						{
+							ssl_error = SSL_get_error(rconn[x].ssl, ret);
+							httpd_printf("ssl_error %d\n", ssl_error);
+						}
 #else
 					ret = recv(rconn[x].fd, precvbuf, RECV_BUF_SIZE,0);
 #endif
@@ -403,6 +421,9 @@ static void platHttpServerTask(void *pvParameters) {
 						//recv error,connection close
 						closeConnection(&rconn[x]);
 					}
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+				} while(bytesStillAvailable);
+#endif
 					if (precvbuf) free(precvbuf);
 				}
 			}
