@@ -49,7 +49,7 @@ static int ICACHE_FLASH_ATTR checkEspfsHeader(void *buf) {
 
 
 // Cgi to query which firmware needs to be uploaded next
-int ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
@@ -115,7 +115,7 @@ typedef struct __attribute__((packed)) {
 
 
 
-int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	CgiUploadFlashDef *def=(CgiUploadFlashDef*)connData->cgiArg;
 	UploadState *state=(UploadState *)connData->cgiData;
 #ifndef ESP32
@@ -322,7 +322,7 @@ static void ICACHE_FLASH_ATTR resetTimerCb(void *arg) {
 }
 
 // Handle request to reboot into the new firmware
-int ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
