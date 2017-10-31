@@ -107,7 +107,7 @@ static int ICACHE_FLASH_ATTR sendFrameHead(Websock *ws, int opcode, int len) {
 	return httpdSend(ws->conn, buf, i);
 }
 
-int ICACHE_FLASH_ATTR cgiWebsocketSend(Websock *ws, char *data, int len, int flags) {
+int ICACHE_FLASH_ATTR cgiWebsocketSend(Websock *ws, const char *data, int len, int flags) {
 	int r=0;
 	int fl=0;
 	if (flags&WEBSOCK_FLAG_BIN) fl=OPCODE_BINARY; else fl=OPCODE_TEXT;
@@ -119,7 +119,7 @@ int ICACHE_FLASH_ATTR cgiWebsocketSend(Websock *ws, char *data, int len, int fla
 }
 
 //Broadcast data to all websockets at a specific url. Returns the amount of connections sent to.
-int ICACHE_FLASH_ATTR cgiWebsockBroadcast(char *resource, char *data, int len, int flags) {
+int ICACHE_FLASH_ATTR cgiWebsockBroadcast(const char *resource, char *data, int len, int flags) {
 	Websock *lw=llStart;
 	int ret=0;
 	while (lw!=NULL) {
