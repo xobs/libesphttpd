@@ -8,7 +8,7 @@ for static files, a tiny template engine, websockets, a captive portal, and more
 # Examples
 
 There are two example projects that integrate this code, both a [non-os](http://git.spritesserver.nl/esphttpd.git/)
-as well as a [FreeRTOS-based](http://git.spritesserver.nl/esphttpd-freertos.git/) example. They show
+as well as a [FreeRTOS-based](https://github.com/chmorgan/esphttpd-freertos) example. They show
 how to use libesphttpd to serve files from an ESP8266/ESP32 and illustrate a way to make an user associate
 the ESP8266/ESP32 with an access point from a standard webbrowser on a PC or mobile phone.
 
