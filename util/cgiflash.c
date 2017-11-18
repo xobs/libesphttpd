@@ -18,6 +18,10 @@ Some flash handling cgi routines. Used for updating the ESPFS/OTA image.
 #include "httpd-platform.h"
 #ifdef ESP32
 #include "esp32_flash.h"
+#include "esp_ota_ops.h"
+#include "esp_log.h"
+
+static const char *TAG = "ota";
 #endif
 
 #ifndef UPGRADE_FLAG_FINISH
@@ -87,7 +91,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 
 #define FLST_START 0
 #define FLST_WRITE 1
+#ifndef ESP32
 #define FLST_SKIP 2
+#endif
 #define FLST_DONE 3
 #define FLST_ERROR 4
 
@@ -95,33 +101,170 @@ CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 #define FILETYPE_FLASH 1
 #define FILETYPE_OTA 2
 typedef struct {
+#ifdef ESP32
+	esp_ota_handle_t update_handle;
+	const esp_partition_t *update_partition;
+	const esp_partition_t *configured;
+	const esp_partition_t *running;
+#endif
 	int state;
 	int filetype;
 	int flashPos;
 	char pageData[PAGELEN];
+#ifndef ESP32
 	int pagePos;
+#endif
 	int address;
 	int len;
 	int skip;
 	char *err;
 } UploadState;
 
+#ifndef ESP32
 typedef struct __attribute__((packed)) {
 	char magic[4];
 	char tag[28];
 	int32_t len1;
 	int32_t len2;
 } OtaHeader;
+#endif
 
+#ifdef ESP32
+CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
+	CgiUploadFlashDef *def=(CgiUploadFlashDef*)connData->cgiArg;
+	UploadState *state=(UploadState *)connData->cgiData;
+	esp_err_t err;
 
+	if (connData->conn == NULL) {
+		//Connection aborted. Clean up.
+		if (state!=NULL) free(state);
+		return HTTPD_CGI_DONE;
+	}
+
+	if (state == NULL) {
+		//First call. Allocate and initialize state variable.
+		httpd_printf("Firmware upload cgi start.\n");
+		state = malloc(sizeof(UploadState));
+		if (state==NULL) {
+			httpd_printf("Can't allocate firmware upload struct!\n");
+			return HTTPD_CGI_DONE;
+		}
+		memset(state, 0, sizeof(UploadState));
+
+		state->configured = esp_ota_get_boot_partition();
+		state->running = esp_ota_get_running_partition();
+
+		if (state->configured != state->running) {
+			ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
+				state->configured->address, state->running->address);
+			ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
+		}
+		ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
+			state->running->type, state->running->subtype, state->running->address);
+
+		state->state=FLST_START;
+		connData->cgiData=state;
+		state->err="Premature end";
+	}
+
+	char *data = connData->post->buff;
+	int dataLen = connData->post->buffLen;
+
+	while (dataLen!=0) {
+		if (state->state==FLST_START) {
+			//First call. Assume the header of whatever we're uploading already is in the POST buffer.
+			if (def->type==CGIFLASH_TYPE_FW && memcmp(data, "EHUG", 4)==0) {
+				state->err="Combined flash images are unneeded/unsupported on ESP32!";
+				state->state=FLST_ERROR;
+				httpd_printf("Combined flash image not supported on ESP32!\n");
+			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post->buff)) {
+				state->update_partition = esp_ota_get_next_update_partition(NULL);
+				ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
+					state->update_partition->subtype, state->update_partition->address);
+				assert(state->update_partition != NULL);
+
+				err = esp_ota_begin(state->update_partition, OTA_SIZE_UNKNOWN, &state->update_handle);
+				if (err != ESP_OK) {
+					ESP_LOGE(TAG, "esp_ota_begin failed, error=%d", err);
+				}
+				ESP_LOGI(TAG, "esp_ota_begin succeeded");
+
+				state->state = FLST_WRITE;
+				state->len = connData->post->len;
+			} else if (def->type==CGIFLASH_TYPE_ESPFS && checkEspfsHeader(connData->post->buff)) {
+				if (connData->post->len > def->fwSize) {
+					state->err="Firmware image too large";
+					state->state=FLST_ERROR;
+				} else {
+					state->len=connData->post->len;
+					state->address=def->fw1Pos;
+					state->state=FLST_WRITE;
+				}
+			} else {
+				state->err="Invalid flash image type!";
+				state->state=FLST_ERROR;
+				httpd_printf("Did not recognize flash image type!\n");
+			}
+		} else if (state->state==FLST_WRITE) {
+			err = esp_ota_write(state->update_handle, data, dataLen);
+			if (err != ESP_OK) {
+				ESP_LOGE(TAG, "Error: esp_ota_write failed! err=0x%x", err);
+			}
+
+			state->len-=dataLen;
+			state->address+=dataLen;
+			if (state->len==0) {
+				state->state=FLST_DONE;
+			}
+
+			dataLen = 0;
+		} else if (state->state==FLST_DONE) {
+			httpd_printf("Huh? %d bogus bytes received after data received.\n", dataLen);
+			//Ignore those bytes.
+			dataLen=0;
+		} else if (state->state==FLST_ERROR) {
+			//Just eat up any bytes we receive.
+			dataLen=0;
+		}
+	}
+
+	printf("post->len %d, post->received %d\n", connData->post->len,
+		connData->post->received);
+	printf("state->len %d, state->address: %d\n", state->len, state->address);
+
+	if (connData->post->len == connData->post->received) {
+		//We're done! Format a response.
+		httpd_printf("Upload done. Sending response.\n");
+		httpdStartResponse(connData, state->state==FLST_ERROR?400:200);
+		httpdHeader(connData, "Content-Type", "text/plain");
+		httpdEndHeaders(connData);
+		if (state->state!=FLST_DONE) {
+			httpdSend(connData, "Firmware image error:", -1);
+			httpdSend(connData, state->err, -1);
+			httpdSend(connData, "\n", -1);
+		} else {
+			if (esp_ota_end(state->update_handle) != ESP_OK) {
+		        ESP_LOGE(TAG, "esp_ota_end failed!");
+		    }
+		    err = esp_ota_set_boot_partition(state->update_partition);
+		    if (err != ESP_OK) {
+		        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed! err=0x%x", err);
+		    }
+		}
+		free(state);
+		return HTTPD_CGI_DONE;
+	}
+
+	return HTTPD_CGI_MORE;
+}
+
+#else
 
 CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	CgiUploadFlashDef *def=(CgiUploadFlashDef*)connData->cgiArg;
 	UploadState *state=(UploadState *)connData->cgiData;
-#ifndef ESP32
 	int len;
 	char buff[128];
-#endif
 
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
@@ -150,7 +293,6 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 		if (state->state==FLST_START) {
 			//First call. Assume the header of whatever we're uploading already is in the POST buffer.
 			if (def->type==CGIFLASH_TYPE_FW && memcmp(data, "EHUG", 4)==0) {
-#ifndef ESP32
 				//Type is combined flash1/flash2 file
 				OtaHeader *h=(OtaHeader*)data;
 				strncpy(buff, h->tag, 27);
@@ -188,22 +330,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 						state->address=def->fw2Pos;
 					}
 				}
-#else
-				state->err="Combined flash images are unneeded/unsupported on ESP32!";
-				state->state=FLST_ERROR;
-				httpd_printf("Combined flash image not supported on ESP32!\n");
-#endif
 			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post->buff)) {
-#ifndef ESP32
-				if (connData->post->len > def->fwSize) {
-					state->err="Firmware image too large";
-					state->state=FLST_ERROR;
-				} else {
-					state->len=connData->post->len;
-					state->address=def->fw1Pos;
-					state->state=FLST_WRITE;
-				}
-#else
 				uint32_t offset, size;
 				esp32flashGetUpdateMem(&offset, &size);
 //				printf("Writing to partition @ %x, size %d\n", offset, size);
@@ -215,7 +342,6 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 					state->address=offset;
 					state->state=FLST_WRITE;
 				}
-#endif
 			} else if (def->type==CGIFLASH_TYPE_ESPFS && checkEspfsHeader(connData->post->buff)) {
 				if (connData->post->len > def->fwSize) {
 					state->err="Firmware image too large";
@@ -297,9 +423,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 			httpdSend(connData, state->err, -1);
 			httpdSend(connData, "\n", -1);
 		} else {
-#ifdef ESP32
 			esp32flashSetOtaAsCurrentImage();
-#endif
 		}
 		free(state);
 		return HTTPD_CGI_DONE;
@@ -307,8 +431,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 	return HTTPD_CGI_MORE;
 }
-
-
+#endif
 
 static HttpdPlatTimerHandle resetTimer;
 
