@@ -342,7 +342,9 @@ static void platHttpServerTask(void *pvParameters) {
 				rconn[x].ssl = SSL_new(ctx);
 				if (!rconn[x].ssl) {
 					httpd_printf("SSL_new failed\n");
-					//TODO: error handler here
+					close(remotefd);
+					rconn[x].fd = -1;
+					continue;
 				}
 				httpd_printf("OK\n");
 
@@ -352,7 +354,10 @@ static void platHttpServerTask(void *pvParameters) {
 				ret = SSL_accept(rconn[x].ssl);
 				if (!ret) {
 					httpd_printf("SSL_accept failed\n");
-					//TODO: error handler here
+					close(remotefd);
+					SSL_free(rconn[x].ssl);
+					rconn[x].fd = -1;
+					continue;
 				}
 				httpd_printf("OK\n");
 #endif
