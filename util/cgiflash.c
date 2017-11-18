@@ -228,9 +228,12 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 		}
 	}
 
+#if 0
+	//TODO: maybe use ESP_LOGD() here in the future
 	printf("post->len %d, post->received %d\n", connData->post->len,
 		connData->post->received);
 	printf("state->len %d, state->address: %d\n", state->len, state->address);
+#endif
 
 	if (connData->post->len == connData->post->received) {
 		//We're done! Format a response.
