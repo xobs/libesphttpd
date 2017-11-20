@@ -16,6 +16,8 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
 #include "libesphttpd/espfs.h"
 #include "espfsformat.h"
 
+#define FILE_CHUNK_LEN    1024
+
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
 static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
@@ -27,7 +29,7 @@ static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nSe
 CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 	EspFsFile *file=connData->cgiData;
 	int len;
-	char buff[1024];
+	char buff[FILE_CHUNK_LEN];
 	char acceptEncodingBuffer[64];
 	int isGzip;
 
@@ -82,9 +84,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 
-	len=espFsRead(file, buff, 1024);
+	len=espFsRead(file, buff, FILE_CHUNK_LEN);
 	if (len>0) httpdSend(connData, buff, len);
-	if (len!=1024) {
+	if (len!=FILE_CHUNK_LEN) {
 		//We're done.
 		espFsClose(file);
 		return HTTPD_CGI_DONE;
@@ -146,7 +148,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 
-	len=espFsRead(tpd->file, buff, 1024);
+	len=espFsRead(tpd->file, buff, FILE_CHUNK_LEN);
 	if (len>0) {
 		sp=0;
 		e=buff;
@@ -184,7 +186,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	}
 	//Send remaining bit.
 	if (sp!=0) httpdSend(connData, e, sp);
-	if (len!=1024) {
+	if (len!=FILE_CHUNK_LEN) {
 		//We're done.
 		((TplCallback)(connData->cgiArg))(connData, NULL, &tpd->tplArg);
 		espFsClose(tpd->file);
