@@ -89,7 +89,7 @@ const char ICACHE_FLASH_ATTR *httpdGetMimetype(const char *url) {
 	char *urlp = (char*)url;
 	int i=0;
 	//Go find the extension
-	char *ext=urlp+(strlen(urlp)-1);
+	const char *ext=urlp+(strlen(urlp)-1);
 	while (ext!=urlp && *ext!='.') ext--;
 	if (*ext=='.') ext++;
 
