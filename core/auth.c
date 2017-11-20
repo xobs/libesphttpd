@@ -15,7 +15,7 @@ HTTP auth implementation. Only does basic authentication for now.
 #include "libesphttpd/auth.h"
 #include "base64.h"
 
-int ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
 	const char *unauthorized = "401 Unauthorized.";
 	int no=0;
 	int r;
