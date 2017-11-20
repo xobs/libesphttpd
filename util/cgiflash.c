@@ -154,17 +154,26 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 		state->configured = esp_ota_get_boot_partition();
 		state->running = esp_ota_get_running_partition();
 
-		if (state->configured != state->running) {
-			ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
-				state->configured->address, state->running->address);
-			ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
-		}
-		ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
-			state->running->type, state->running->subtype, state->running->address);
+		// check that ota support is enabled
+		if(!state->configured || !state->running)
+		{
+			ESP_LOGE(TAG, "configured or running parititon is null, is OTA support enabled in build configuration?");
+			state->state=FLST_ERROR;
+			state->err="Partition error, OTA not supported?";
+		} else {
+			if (state->configured != state->running) {
+				ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
+					state->configured->address, state->running->address);
+				ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
+			}
+			ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
+				state->running->type, state->running->subtype, state->running->address);
 
-		state->state=FLST_START;
+			state->state=FLST_START;
+			state->err="Premature end";
+		}
+
 		connData->cgiData=state;
-		state->err="Premature end";
 	}
 
 	char *data = connData->post->buff;
