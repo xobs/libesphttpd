@@ -293,7 +293,10 @@ static void platHttpServerTask(void *pvParameters) {
 				FD_SET(rconn[x].fd, &readset);
 				if (rconn[x].needWriteDoneNotif) FD_SET(rconn[x].fd, &writeset);
 				if (rconn[x].fd>maxfdp) maxfdp=rconn[x].fd;
+#if 0
+	//TODO: make this ESP_LOGD() as it is too verbose for normal use
 				printf("Sel add %d (write %d)\n", (int)rconn[x].fd, rconn[x].needWriteDoneNotif);
+#endif
 			} else {
 				socketsFull=0;
 			}
