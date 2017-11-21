@@ -561,11 +561,12 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 		//Look up URL in the built-in URL table.
 		while (builtInUrls[i].url!=NULL) {
 			int match=0;
+			const char const * route = builtInUrls[i].url;
 			//See if there's a literal match
-			if (strcmp(builtInUrls[i].url, conn->url)==0) match=1;
+			if (strcmp(route, conn->url)==0) match=1;
 			//See if there's a wildcard match
-			if (builtInUrls[i].url[strlen(builtInUrls[i].url)-1]=='*' &&
-					strncmp(builtInUrls[i].url, conn->url, strlen(builtInUrls[i].url)-1)==0) match=1;
+			if (route[strlen(route)-1]=='*' &&
+					strncmp(route, conn->url, strlen(route)-1)==0) match=1;
 			if (match) {
 				httpd_printf("Is url index %d\n", i);
 				conn->cgiData=NULL;
