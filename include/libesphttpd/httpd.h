@@ -1,6 +1,8 @@
 #ifndef HTTPD_H
 #define HTTPD_H
 
+#include "route.h"
+
 #define HTTPDVER "0.5"
 
 //Max length of request head. This is statically allocated for each connection.
