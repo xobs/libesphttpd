@@ -572,6 +572,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdConnData *conn) {
 				conn->cgiData=NULL;
 				conn->cgi=builtInUrls[i].cgiCb;
 				conn->cgiArg=builtInUrls[i].cgiArg;
+				conn->cgiArg2=builtInUrls[i].cgiArg2;
 				break;
 			}
 			i++;

@@ -3,6 +3,12 @@
 
 #include "httpd.h"
 
+/**
+ * The template substitution callback.
+ * Returns CGI_MORE if more should be sent within the token, CGI_DONE otherwise.
+ */
+typedef CgiStatus (* TplCallback)(HttpdConnData *connData, char *token, void **arg);
+
 CgiStatus cgiEspFsHook(HttpdConnData *connData);
 CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData);
 

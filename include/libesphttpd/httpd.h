@@ -68,6 +68,7 @@ struct HttpdConnData {
 	char *getArgs;			// The GET arguments for this request, if any.
 	const void *cgiArg;		// Argument to the CGI function, as stated as the 3rd argument of
 							// the builtInUrls entry that referred to the CGI function.
+	const void *cgiArg2;	// 4th argument of the builtInUrls entries, used to pass template file to the tpl handler.
 	void *cgiData;			// Opaque data pointer for the CGI function
 	char *hostName;			// Host name field of request
 	HttpdPriv *priv;		// Opaque pointer to data for internal httpd housekeeping
@@ -95,6 +96,7 @@ typedef struct {
 	const char *url;
 	cgiSendCallback cgiCb;
 	const void *cgiArg;
+	const void *cgiArg2;
 } HttpdBuiltInUrl;
 
 CgiStatus cgiRedirect(HttpdConnData *connData);
