@@ -358,13 +358,19 @@ Linux.
 
 # Licensing
 
-libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license by Jeroen Domburg
-but was re-licensed with the blessing of most of the projects contributors.
+libesphttpd is licensed under the MPLv2. It was originally licensed under a 'Beer-ware' license
+by Jeroen Domburg that was equivalent to a public domain license. Chris Morgan
+<chmorgan@gmail.com> initiated relicensing to MPLv2 prior
+to investing a number of hours into improving the library for its use in a potential
+commercial project. The relicensing was done after asking for and receiving
+the blessing from most of the projects contributors although it should be noted that the
+original license didn't require permission to relicense or use in any way.
 
 The topic of licenses can be controversial. The original license was more free in that it allowed users to use the code
 in any way, including relicensing it to any license they chose. The MPLv2 restricts freedom in that it requires
 modifications to be given back to the community. This license establishes the agreement that in exchange for using
 this great library that users are required to give back their changes to let others benefit.
+This was the spirit and intention of the relicencing to the MPLv2.
 
 While the 'Beer-ware' license text was removed to avoid license confusion the authors of this great library,
 especially Jeroen, deserve a beer. If you appreciate the library and you meet them in person some day please consider
