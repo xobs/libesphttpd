@@ -17,7 +17,7 @@ COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
 HTMLDIR := $(subst ",,$(CONFIG_ESPHTTPD_HTMLDIR))
 
-YUI-COMPRESSOR ?= /usr/bin/yui-compressor
+JS_MINIFY_TOOL ?= uglifyjs
 CFLAGS += -DFREERTOS -DGZIP_COMPRESSION -DESPFS_HEATSHRINK
 
 USE_HEATSHRINK := 1
@@ -28,20 +28,19 @@ GZIP_COMPRESSION := 1
 
 liblibesphttpd.a: libwebpages-espfs.a
 
-webpages.espfs: $(PROJECT_PATH)/$(HTMLDIR) mkespfsimage/mkespfsimage
-ifeq ("$(CONFIG_ESPHTTPD_USEYUICOMPRESSOR)","y")
-	echo "Using YUI compressor"
-	rm -rf html_compressed;
-	cp -r $(PROJECT_PATH)/$(HTMLDIR) html_compressed;
-	echo "Compression assets with yui-compressor. This may take a while..."
-	for file in `find html_compressed -type f -name "*.js"`; do $(YUI-COMPRESSOR) --type js $$file -o $$file; done
-	for file in `find html_compressed -type f -name "*.css"`; do $(YUI-COMPRESSOR) --type css $$file -o $$file; done
-	awk "BEGIN {printf \"YUI compression ratio was: %.2f%%\\n\", (`du -b -s html_compressed/ | sed 's/\([0-9]*\).*/\1/'`/`du -b -s ../html/ | sed 's/\([0-9]*\).*/\1/'`)*100}"
 # mkespfsimage will compress html, css, svg and js files with gzip by default if enabled
 # override with -g cmdline parameter
-	cd html_compressed; find . | $(THISDIR)/espfs/mkespfsimage/mkespfsimage > $(THISDIR)/webpages.espfs; cd ..;
+webpages.espfs: $(PROJECT_PATH)/$(HTMLDIR) mkespfsimage/mkespfsimage
+ifeq ("$(CONFIG_ESPHTTPD_USEUGLIFYJS)","y")
+	echo "Using uglifyjs"
+	rm -rf html_compressed;
+	cp -r $(PROJECT_PATH)/$(HTMLDIR) html_compressed;
+	echo "Compressing javascript assets with uglifyjs"
+	for file in `find html_compressed -type f -name "*.js"`; do $(JS_MINIFY_TOOL) $$file -c -m -o $$file; done
+	awk "BEGIN {printf \" compression ratio was: %.2f%%\\n\", (`du -b -s html_compressed/ | sed 's/\([0-9]*\).*/\1/'`/`du -b -s $(PROJECT_PATH)/$(HTMLDIR) | sed 's/\([0-9]*\).*/\1/'`)*100}"
+	cd html_compressed; find . | $(COMPONENT_BUILD_DIR)/mkespfsimage/mkespfsimage > $(COMPONENT_BUILD_DIR)/webpages.espfs; cd ..;
 else
-	echo "Not using yui compressor"
+	echo "Not using uglifyjs"
 	cd  $(PROJECT_PATH)/$(HTMLDIR) &&  find . | $(COMPONENT_BUILD_DIR)/mkespfsimage/mkespfsimage > $(COMPONENT_BUILD_DIR)/webpages.espfs
 endif
 

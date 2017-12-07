@@ -33,12 +33,12 @@ config ESPHTTPD_HTMLDIR
         depends on ESPHTTPD_ENABLED
 	default "html/"
 
-config ESPHTTPD_USEYUICOMPRESSOR
-	bool "Compress JS/CSS with YUI compressor"
+config ESPHTTPD_USEUGLIFYJS
+	bool "Compress JS with uglifyjs"
         depends on ESPHTTPD_ENABLED
 	default n
 	help
-		Compress JS and CSS files with the YIU compressor. Needs YUI installed.
+		Compress JS files with the uglifyjs compressor. Needs uglifyjs installed.
 
 config ESPHTTPD_SSL_SUPPORT
 	bool "Enable SSL for all connections"
