@@ -132,10 +132,13 @@ void httpdHeader(HttpdConnData *conn, const char *field, const char *val);
 void httpdEndHeaders(HttpdConnData *conn);
 int httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen);
 int httpdSend(HttpdConnData *conn, const char *data, int len);
+int httpdSend_js(HttpdConnData *conn, const char *data, int len);
+int httpdSend_html(HttpdConnData *conn, const char *data, int len);
 void httpdFlushSendBuffer(HttpdConnData *conn);
 void httpdContinue(HttpdConnData *conn);
 void httpdConnSendStart(HttpdConnData *conn);
 void httpdConnSendFinish(HttpdConnData *conn);
+void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime);
 
 //Platform dependent code should call these.
 void httpdSentCb(ConnTypePtr conn, char *remIp, int remPort);

@@ -12,4 +12,9 @@ typedef CgiStatus (* TplCallback)(HttpdConnData *connData, char *token, void **a
 CgiStatus cgiEspFsHook(HttpdConnData *connData);
 CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData);
 
+/**
+ * @return 1 upon success, 0 upon failure
+ */
+int tplSend(HttpdConnData *conn, const char *str, int len);
+
 #endif

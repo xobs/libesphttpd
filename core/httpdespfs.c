@@ -156,6 +156,12 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 
 //cgiEspFsTemplate can be used as a template.
 
+typedef enum {
+	ENCODE_PLAIN = 0,
+	ENCODE_HTML,
+	ENCODE_JS,
+} TplEncode;
+
 typedef struct {
 	EspFsFile *file;
 	void *tplArg;
@@ -169,13 +175,28 @@ typedef struct {
 	int buff_x;
 	int buff_sp;
 	char *buff_e;
+
+	TplEncode tokEncode;
 } TplData;
+
+int ICACHE_FLASH_ATTR
+tplSend(HttpdConnData *conn, const char *str, int len)
+{
+        if (conn == NULL) return 0;
+        TplData *tpd=conn->cgiData;
+
+        if (tpd == NULL || tpd->tokEncode == ENCODE_PLAIN) return httpdSend(conn, str, len);
+        if (tpd->tokEncode == ENCODE_HTML) return httpdSend_html(conn, str, len);
+        if (tpd->tokEncode == ENCODE_JS) return httpdSend_js(conn, str, len);
+        return 0;
+}
 
 CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	TplData *tpd=connData->cgiData;
 	int len;
 	int x, sp=0;
 	char *e=NULL;
+	int tokOfs;
 
 	if (connData->conn==NULL) {
 		//Connection aborted. Clean up.
@@ -223,7 +244,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		}
 		connData->cgiData=tpd;
 		httpdStartResponse(connData, 200);
-		httpdHeader(connData, "Content-Type", httpdGetMimetype(connData->url));
+		const char *mime = httpdGetMimetype(connData->url);
+		httpdHeader(connData, "Content-Type", mime);
+		httpdAddCacheHeaders(connData, mime);
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_MORE;
 	}
@@ -233,7 +256,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	// resume the parser state from the last token,
 	// if subst. func wants more data to be sent.
 	if (tpd->chunk_resume) {
-		//dbg("Resuming tpl parser for multi-part subst");
+		//espfs_dbg("Resuming tpl parser for multi-part subst");
 		len = tpd->buff_len;
 		e = tpd->buff_e;
 		sp = tpd->buff_sp;
@@ -270,13 +293,39 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 						if (!tpd->chunk_resume) {
 							//This is an actual token.
 							tpd->token[tpd->tokenPos++] = 0; //zero-terminate token
+
+							tokOfs = 0;
+							tpd->tokEncode = ENCODE_PLAIN;
+							if (strncmp(tpd->token, "html:", 5) == 0) {
+								tokOfs = 5;
+								tpd->tokEncode = ENCODE_HTML;
+							}
+							else if (strncmp(tpd->token, "h:", 2) == 0) {
+								tokOfs = 2;
+								tpd->tokEncode = ENCODE_HTML;
+							}
+							else if (strncmp(tpd->token, "js:", 3) == 0) {
+								tokOfs = 3;
+								tpd->tokEncode = ENCODE_JS;
+							}
+							else if (strncmp(tpd->token, "j:", 2) == 0) {
+								tokOfs = 2;
+								tpd->tokEncode = ENCODE_JS;
+							}
+
+							// do the shifting
+							if (tokOfs > 0) {
+								for(int i=tokOfs; i<=tpd->tokenPos; i++) {
+									tpd->token[i-tokOfs] = tpd->token[i];
+								}
+							}
 						}
 
 						tpd->chunk_resume = false;
 
 						CgiStatus status = ((TplCallback)(connData->cgiArg))(connData, tpd->token, &tpd->tplArg);
 						if (status == HTTPD_CGI_MORE) {
-//							dbg("Multi-part tpl subst, saving parser state");
+//							espfs_dbg("Multi-part tpl subst, saving parser state");
 							// wants to send more in this token's place.....
 							tpd->chunk_resume = true;
 							tpd->buff_len = len;
@@ -289,8 +338,33 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 					//Go collect normal chars again.
 					e=&buff[x+1];
 					tpd->tokenPos=-1;
-				} else {
-					if (tpd->tokenPos<(sizeof(tpd->token)-1)) tpd->token[tpd->tokenPos++]=buff[x];
+				}
+				else {
+					// Add char to the token buf
+					char c = buff[x];
+					bool outOfSpace = tpd->tokenPos >= (sizeof(tpd->token) - 1);
+					if (outOfSpace ||
+						(   !(c >= 'a' && c <= 'z') &&
+							!(c >= 'A' && c <= 'Z') &&
+							!(c >= '0' && c <= '9') &&
+							c != '.' && c != '_' && c != '-' && c != ':'
+						)) {
+						// looks like we collected some garbage
+						httpdSend(connData, "%", 1);
+						if (tpd->tokenPos > 0) {
+							httpdSend(connData, tpd->token, tpd->tokenPos);
+						}
+						// the bad char
+						httpdSend(connData, &c, 1);
+
+						//Go collect normal chars again.
+						e=&buff[x+1];
+						tpd->tokenPos=-1;
+					}
+					else {
+						// collect it
+						tpd->token[tpd->tokenPos++] = c;
+					}
 				}
 			}
 		}
