@@ -18,12 +18,12 @@ COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 HTMLDIR := $(subst ",,$(CONFIG_ESPHTTPD_HTMLDIR))
 
 JS_MINIFY_TOOL ?= uglifyjs
-CFLAGS += -DFREERTOS -DGZIP_COMPRESSION -DESPFS_HEATSHRINK
+CFLAGS += -DFREERTOS -DESPFS_HEATSHRINK
 
-USE_HEATSHRINK := 1
+USE_HEATSHRINK := "yes"
 COMPONENT_ADD_INCLUDEDIRS += lib/heatshrink
 
-GZIP_COMPRESSION := 1
+USE_GZIP_COMPRESSION := "yes"
 
 
 liblibesphttpd.a: libwebpages-espfs.a
@@ -53,7 +53,7 @@ libwebpages-espfs.a: webpages.espfs
 mkespfsimage/mkespfsimage: $(COMPONENT_PATH)/espfs/mkespfsimage
 	mkdir -p $(COMPONENT_BUILD_DIR)/mkespfsimage
 	$(MAKE) -C $(COMPONENT_BUILD_DIR)/mkespfsimage -f $(COMPONENT_PATH)/espfs/mkespfsimage/Makefile \
-		ESPFS_HEATSHRINK="$(USE_HEATSHRINK)" GZIP_COMPRESSION="$(GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
+		USE_HEATSHRINK="$(USE_HEATSHRINK)" USE_GZIP_COMPRESSION="$(USE_GZIP_COMPRESSION)" BUILD_DIR=$(COMPONENT_BUILD_DIR)/mkespfsimage \
 		CC=$(HOSTCC)
 
 endif
