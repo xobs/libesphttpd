@@ -553,23 +553,6 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_
 	httpListenAddress.sin_addr.s_addr = listenAddress;
 	httpdFlags = flags;
 
-	// check flags against feature support
-#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	if(!(flags & HTTPD_FLAG_SSL))
-	{
-		httpd_printf("ERROR: SSL flag not set but SSL support is enabled\n");
-		status = FeatureFlagMismatch;
-		return status;
-	}
-#else
-	if(flags & HTTPD_FLAG_SSL)
-	{
-		httpd_printf("ERROR: SSL flag set but SSL support not enabled\n");
-		status = FeatureFlagMismatch;
-		return status;
-	}
-#endif
-
 #ifdef linux
 	pthread_t thread;
 	pthread_create(&thread, NULL, platHttpServerTask, NULL);

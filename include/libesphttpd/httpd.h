@@ -116,8 +116,7 @@ typedef enum
 
 typedef enum
 {
-	InitializationSuccess,
-	FeatureFlagMismatch
+	InitializationSuccess
 } HttpdInitStatus;
 
 HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
