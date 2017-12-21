@@ -289,10 +289,11 @@ static void platHttpServerTask(void *pvParameters) {
 		//timeout.tv_usec = 0;
 
 		for(x=0; x<HTTPD_MAX_CONNECTIONS; x++){
-			if (rconn[x].fd!=-1) {
-				FD_SET(rconn[x].fd, &readset);
-				if (rconn[x].needWriteDoneNotif) FD_SET(rconn[x].fd, &writeset);
-				if (rconn[x].fd>maxfdp) maxfdp=rconn[x].fd;
+			RtosConnType *pRconn = &(rconn[x]);
+			if (pRconn->fd!=-1) {
+				FD_SET(pRconn->fd, &readset);
+				if (pRconn->needWriteDoneNotif) FD_SET(pRconn->fd, &writeset);
+				if (pRconn->fd>maxfdp) maxfdp = pRconn->fd;
 #if 0
 	//TODO: make this ESP_LOGD() as it is too verbose for normal use
 				printf("Sel add %d (write %d)\n", (int)rconn[x].fd, rconn[x].needWriteDoneNotif);
@@ -326,6 +327,8 @@ static void platHttpServerTask(void *pvParameters) {
 					continue;
 				}
 
+				RtosConnType *pRconn = &(rconn[x]);
+
 				int keepAlive = 1; //enable keepalive
 				int keepIdle = 60; //60s
 				int keepInterval = 5; //5s
@@ -336,30 +339,30 @@ static void platHttpServerTask(void *pvParameters) {
 				setsockopt(remotefd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepInterval, sizeof(keepInterval));
 				setsockopt(remotefd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepCount, sizeof(keepCount));
 
-				rconn[x].fd=remotefd;
-				rconn[x].needWriteDoneNotif=0;
-				rconn[x].needsClose=0;
+				pRconn->fd=remotefd;
+				pRconn->needWriteDoneNotif=0;
+				pRconn->needsClose=0;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 				httpd_printf("SSL server create ......\n");
-				rconn[x].ssl = SSL_new(ctx);
-				if (!rconn[x].ssl) {
+				pRconn->ssl = SSL_new(ctx);
+				if (!pRconn->ssl) {
 					httpd_printf("SSL_new failed\n");
 					close(remotefd);
-					rconn[x].fd = -1;
+					pRconn->fd = -1;
 					continue;
 				}
 				httpd_printf("OK\n");
 
-				SSL_set_fd(rconn[x].ssl, rconn[x].fd);
+				SSL_set_fd(pRconn->ssl, pRconn->fd);
 
 				httpd_printf("SSL server accept client ......\n");
-				ret = SSL_accept(rconn[x].ssl);
+				ret = SSL_accept(pRconn->ssl);
 				if (!ret) {
 					httpd_printf("SSL_accept failed\n");
 					close(remotefd);
-					SSL_free(rconn[x].ssl);
-					rconn[x].fd = -1;
+					SSL_free(pRconn->ssl);
+					pRconn->fd = -1;
 					continue;
 				}
 				httpd_printf("OK\n");
@@ -369,35 +372,37 @@ static void platHttpServerTask(void *pvParameters) {
 				getpeername(remotefd, &name, (socklen_t *)&len);
 				struct sockaddr_in *piname=(struct sockaddr_in *)&name;
 
-				rconn[x].port=piname->sin_port;
-				memcpy(&rconn[x].ip, &piname->sin_addr.s_addr, sizeof(rconn[x].ip));
+				pRconn->port = piname->sin_port;
+				memcpy(&pRconn->ip, &piname->sin_addr.s_addr, sizeof(pRconn->ip));
 
-				httpdConnectCb(&rconn[x], rconn[x].ip, rconn[x].port);
+				httpdConnectCb(pRconn, pRconn->ip, pRconn->port);
 			}
 
 			//See if anything happened on the existing connections.
 			for(x=0; x < HTTPD_MAX_CONNECTIONS; x++){
+				RtosConnType *pRconn = &(rconn[x]);
+
 				//Skip empty slots
-				if (rconn[x].fd==-1) continue;
+				if (pRconn->fd==-1) continue;
 
 				//Check for write availability first: the read routines may write needWriteDoneNotif while
 				//the select didn't check for that.
-				if (rconn[x].needWriteDoneNotif && FD_ISSET(rconn[x].fd, &writeset)) {
-					rconn[x].needWriteDoneNotif=0; //Do this first, httpdSentCb may write something making this 1 again.
-					if (rconn[x].needsClose) {
+				if (pRconn->needWriteDoneNotif && FD_ISSET(pRconn->fd, &writeset)) {
+					pRconn->needWriteDoneNotif=0; //Do this first, httpdSentCb may write something making this 1 again.
+					if (pRconn->needsClose) {
 						//Do callback and close fd.
-						closeConnection(&rconn[x]);
+						closeConnection(pRconn);
 					} else {
-						httpdSentCb(&rconn[x], rconn[x].ip, rconn[x].port);
+						httpdSentCb(pRconn, pRconn->ip, pRconn->port);
 					}
 				}
 
-				if (FD_ISSET(rconn[x].fd, &readset)) {
+				if (FD_ISSET(pRconn->fd, &readset)) {
 					precvbuf=(char*)malloc(RECV_BUF_SIZE);
 					if (precvbuf==NULL) {
 						httpd_printf("%s: memory exhausted!\n", __FUNCTION__);
-						httpdDisconCb(&rconn[x], rconn[x].ip, rconn[x].port);
-						closeConnection(&rconn[x]);
+						httpdDisconCb(pRconn, pRconn->ip, pRconn->port);
+						closeConnection(pRconn);
 					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 					int bytesStillAvailable;
@@ -409,25 +414,25 @@ static void platHttpServerTask(void *pvParameters) {
 					// re-read approach resolves an issue where data is stuck in
 					// SSL internal buffers
 					do {
-						ret = SSL_read(rconn[x].ssl, precvbuf, RECV_BUF_SIZE - 1);
+						ret = SSL_read(pRconn->ssl, precvbuf, RECV_BUF_SIZE - 1);
 
-						bytesStillAvailable = SSL_has_pending(rconn[x].ssl);
+						bytesStillAvailable = SSL_has_pending(pRconn->ssl);
 
 						int ssl_error;
 						if(ret <= 0)
 						{
-							ssl_error = SSL_get_error(rconn[x].ssl, ret);
+							ssl_error = SSL_get_error(pRconn->ssl, ret);
 							httpd_printf("ssl_error %d\n", ssl_error);
 						}
 #else
-					ret = recv(rconn[x].fd, precvbuf, RECV_BUF_SIZE,0);
+					ret = recv(pRconn->fd, precvbuf, RECV_BUF_SIZE,0);
 #endif
 					if (ret > 0) {
 						//Data received. Pass to httpd.
-						httpdRecvCb(&rconn[x], rconn[x].ip, rconn[x].port, precvbuf, ret);
+						httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
 					} else {
 						//recv error,connection close
-						closeConnection(&rconn[x]);
+						closeConnection(pRconn);
 					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 				} while(bytesStillAvailable);
