@@ -639,7 +639,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
 		while (pInstance->builtInUrls[i].url!=NULL) {
 			const HttpdBuiltInUrl *pUrl = &(pInstance->builtInUrls[i]);
 			int match=0;
-			const char const * route = pUrl->url;
+			const char* route = pUrl->url;
 			//See if there's a literal match
 			if (strcmp(route, conn->url)==0) match=1;
 			//See if there's a wildcard match
