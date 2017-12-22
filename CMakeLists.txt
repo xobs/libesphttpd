@@ -73,5 +73,6 @@ install(FILES include/libesphttpd/cgiwebsocket.h DESTINATION include/libesphttpd
 install(FILES include/libesphttpd/httpdespfs.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/linux.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/platform.h DESTINATION include/libesphttpd)
+install(FILES include/libesphttpd/route.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/espfs.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/webpages-espfs.h DESTINATION include/libesphttpd)
