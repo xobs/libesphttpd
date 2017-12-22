@@ -32,6 +32,8 @@ struct RtosConnType{
 #endif
 };
 
+#define RECV_BUF_SIZE 2048
+
 typedef struct
 {
     RtosConnType rconn[HTTPD_MAX_CONNECTIONS];
@@ -40,6 +42,9 @@ typedef struct
     int httpMaxConnCt;
     struct sockaddr_in httpListenAddress;
     HttpdFlags httpdFlags;
+
+	// storage for data read in the main loop
+	char precvbuf[RECV_BUF_SIZE];
 
 #ifdef linux
     pthread_mutex_t httpdMux;

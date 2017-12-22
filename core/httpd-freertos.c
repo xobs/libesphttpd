@@ -184,7 +184,6 @@ failed1:
 }
 #endif
 
-#define RECV_BUF_SIZE 2048
 #ifdef linux
 static void* platHttpServerTask(void *pvParameters) {
 #else
@@ -196,7 +195,6 @@ static void platHttpServerTask(void *pvParameters) {
 	int32 ret;
 	int x;
 	int maxfdp = 0;
-	char *precvbuf;
 	fd_set readset,writeset;
 	struct sockaddr name;
 	//struct timeval timeout;
@@ -387,12 +385,6 @@ static void platHttpServerTask(void *pvParameters) {
 				}
 
 				if (FD_ISSET(pRconn->fd, &readset)) {
-					precvbuf=(char*)malloc(RECV_BUF_SIZE);
-					if (precvbuf==NULL) {
-						ESP_LOGE(TAG, "memory exhausted");
-						httpdDisconCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
-						closeConnection(pInstance, pRconn);
-					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 					if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 					{
@@ -405,7 +397,7 @@ static void platHttpServerTask(void *pvParameters) {
 						// re-read approach resolves an issue where data is stuck in
 						// SSL internal buffers
 						do {
-							ret = SSL_read(pRconn->ssl, precvbuf, RECV_BUF_SIZE - 1);
+							ret = SSL_read(pRconn->ssl, &pInstance->precvbuf, RECV_BUF_SIZE - 1);
 
 							bytesStillAvailable = SSL_has_pending(pRconn->ssl);
 
@@ -418,7 +410,7 @@ static void platHttpServerTask(void *pvParameters) {
 
 							if (ret > 0) {
 								//Data received. Pass to httpd.
-								httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+								httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret);
 							} else {
 								//recv error,connection close
 								closeConnection(pInstance, pRconn);
@@ -427,11 +419,11 @@ static void platHttpServerTask(void *pvParameters) {
 					} else
 					{
 #endif
-						ret = recv(pRconn->fd, precvbuf, RECV_BUF_SIZE,0);
+						ret = recv(pRconn->fd, &pInstance->precvbuf[0], RECV_BUF_SIZE, 0);
 
 						if (ret > 0) {
 							//Data received. Pass to httpd.
-							httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+							httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret);
 						} else {
 							//recv error,connection close
 							closeConnection(pInstance, pRconn);
@@ -439,8 +431,6 @@ static void platHttpServerTask(void *pvParameters) {
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 					}
 #endif
-
-					if (precvbuf) free(precvbuf);
 				}
 			}
 		}
