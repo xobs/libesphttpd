@@ -76,12 +76,17 @@ struct  RtosConnType{
 static RtosConnType rconn[HTTPD_MAX_CONNECTIONS];
 
 int ICACHE_FLASH_ATTR httpdPlatSendData(ConnTypePtr conn, char *buff, int len) {
+	int bytesWritten;
 	conn->needWriteDoneNotif=1;
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	return (SSL_write(conn->ssl, buff, len) >= 0);
-#else
-	return (write(conn->fd, buff, len)>=0);
+	if(httpdFlags & HTTPD_FLAG_SSL)
+	{
+		bytesWritten = SSL_write(conn->ssl, buff, len);
+	} else
 #endif
+	bytesWritten = write(conn->fd, buff, len);
+
+	return (bytesWritten >= 0);
 }
 
 void ICACHE_FLASH_ATTR httpdPlatDisconnect(ConnTypePtr conn) {
@@ -118,28 +123,34 @@ void closeConnection(RtosConnType *rconn)
 	httpdDisconCb(rconn, rconn->ip, rconn->port);
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	int retval;
-	retval = SSL_shutdown(rconn->ssl);
-	if(retval == 1)
+	if(httpdFlags & HTTPD_FLAG_SSL)
 	{
-		httpd_printf("SSL_shutdown() success\n");
-	} else if(retval == 0)
-	{
-		httpd_printf("SSL_shutdown() call again\n");
-	} else
-	{
-		httpd_printf("SSL_shutdown() error %d\n", retval);
+		int retval;
+		retval = SSL_shutdown(rconn->ssl);
+		if(retval == 1)
+		{
+			httpd_printf("SSL_shutdown() success\n");
+		} else if(retval == 0)
+		{
+			httpd_printf("SSL_shutdown() call again\n");
+		} else
+		{
+			httpd_printf("SSL_shutdown() error %d\n", retval);
+		}
+		httpd_printf("SSL_shutdown() complete\n");
 	}
-	httpd_printf("SSL_shutdown() complete\n");
 #endif
 
 	close(rconn->fd);
 	rconn->fd=-1;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	SSL_free(rconn->ssl);
-	httpd_printf("SSL_free() complete\n");
-	rconn->ssl = 0;
+	if(httpdFlags & HTTPD_FLAG_SSL)
+	{
+		SSL_free(rconn->ssl);
+		httpd_printf("SSL_free() complete\n");
+		rconn->ssl = 0;
+	}
 #endif
 }
 
@@ -238,15 +249,18 @@ static void platHttpServerTask(void *pvParameters) {
 	server_addr.sin_port = htons(httpPort); /* Local port */
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	ctx = sslCreateContext();
-	if(!ctx)
+	if(httpdFlags & HTTPD_FLAG_SSL)
 	{
-		httpd_printf("%s: failed to create ssl context\n", __FUNCTION__);
-#ifdef linux
-		return NULL;
-#else
-		vTaskDelete(NULL);
-#endif
+		ctx = sslCreateContext();
+		if(!ctx)
+		{
+			httpd_printf("%s: failed to create ssl context\n", __FUNCTION__);
+	#ifdef linux
+			return NULL;
+	#else
+			vTaskDelete(NULL);
+	#endif
+		}
 	}
 #endif
 
@@ -344,28 +358,31 @@ static void platHttpServerTask(void *pvParameters) {
 				pRconn->needsClose=0;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-				httpd_printf("SSL server create ......\n");
-				pRconn->ssl = SSL_new(ctx);
-				if (!pRconn->ssl) {
-					httpd_printf("SSL_new failed\n");
-					close(remotefd);
-					pRconn->fd = -1;
-					continue;
-				}
-				httpd_printf("OK\n");
+				if(httpdFlags & HTTPD_FLAG_SSL)
+				{
+					httpd_printf("SSL server create ......\n");
+					pRconn->ssl = SSL_new(ctx);
+					if (!pRconn->ssl) {
+						httpd_printf("SSL_new failed\n");
+						close(remotefd);
+						pRconn->fd = -1;
+						continue;
+					}
+					httpd_printf("OK\n");
 
-				SSL_set_fd(pRconn->ssl, pRconn->fd);
+					SSL_set_fd(pRconn->ssl, pRconn->fd);
 
-				httpd_printf("SSL server accept client ......\n");
-				ret = SSL_accept(pRconn->ssl);
-				if (!ret) {
-					httpd_printf("SSL_accept failed\n");
-					close(remotefd);
-					SSL_free(pRconn->ssl);
-					pRconn->fd = -1;
-					continue;
+					httpd_printf("SSL server accept client ......\n");
+					ret = SSL_accept(pRconn->ssl);
+					if (!ret) {
+						httpd_printf("SSL_accept failed\n");
+						close(remotefd);
+						SSL_free(pRconn->ssl);
+						pRconn->fd = -1;
+						continue;
+					}
+					httpd_printf("OK\n");
 				}
-				httpd_printf("OK\n");
 #endif
 
 				len=sizeof(name);
@@ -405,38 +422,52 @@ static void platHttpServerTask(void *pvParameters) {
 						closeConnection(pRconn);
 					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-					int bytesStillAvailable;
+					if(httpdFlags & HTTPD_FLAG_SSL)
+					{
+						int bytesStillAvailable;
 
-					// NOTE: we repeat the call to SSL_read() and process data
-					// while SSL indicates there is still pending data.
-					//
-					// select() isn't detecting available data, this
-					// re-read approach resolves an issue where data is stuck in
-					// SSL internal buffers
-					do {
-						ret = SSL_read(pRconn->ssl, precvbuf, RECV_BUF_SIZE - 1);
+						// NOTE: we repeat the call to SSL_read() and process data
+						// while SSL indicates there is still pending data.
+						//
+						// select() isn't detecting available data, this
+						// re-read approach resolves an issue where data is stuck in
+						// SSL internal buffers
+						do {
+							ret = SSL_read(pRconn->ssl, precvbuf, RECV_BUF_SIZE - 1);
 
-						bytesStillAvailable = SSL_has_pending(pRconn->ssl);
+							bytesStillAvailable = SSL_has_pending(pRconn->ssl);
 
-						int ssl_error;
-						if(ret <= 0)
-						{
-							ssl_error = SSL_get_error(pRconn->ssl, ret);
-							httpd_printf("ssl_error %d\n", ssl_error);
+							int ssl_error;
+							if(ret <= 0)
+							{
+								ssl_error = SSL_get_error(pRconn->ssl, ret);
+								httpd_printf("ssl_error %d\n", ssl_error);
+							}
+
+							if (ret > 0) {
+								//Data received. Pass to httpd.
+								httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+							} else {
+								//recv error,connection close
+								closeConnection(pRconn);
+							}
+						} while(bytesStillAvailable);
+					} else
+					{
+#endif
+						ret = recv(pRconn->fd, precvbuf, RECV_BUF_SIZE,0);
+
+						if (ret > 0) {
+							//Data received. Pass to httpd.
+							httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+						} else {
+							//recv error,connection close
+							closeConnection(pRconn);
 						}
-#else
-					ret = recv(pRconn->fd, precvbuf, RECV_BUF_SIZE,0);
-#endif
-					if (ret > 0) {
-						//Data received. Pass to httpd.
-						httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
-					} else {
-						//recv error,connection close
-						closeConnection(pRconn);
-					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-				} while(bytesStillAvailable);
+					}
 #endif
+
 					if (precvbuf) free(precvbuf);
 				}
 			}

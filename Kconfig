@@ -41,11 +41,11 @@ config ESPHTTPD_USEUGLIFYJS
 		Compress JS files with the uglifyjs compressor. Needs uglifyjs installed.
 
 config ESPHTTPD_SSL_SUPPORT
-	bool "Enable SSL for all connections"
+	bool "Enable SSL support"
         depends on ESPHTTPD_ENABLED
 	default n
 	help
-		Enabling this forces all connections to be https.
+		Enabling this allows the server to be placed into ssl mode.
 
 		SSL servers require certificates. Steps to use:
 		- Place a 'cacert.der' and 'prvtkey.der' files in your app directory.
