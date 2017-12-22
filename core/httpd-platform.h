@@ -3,15 +3,12 @@
 
 #include "libesphttpd/platform.h"
 
-int httpdPlatSendData(ConnTypePtr conn, char *buff, int len);
+int httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len);
 void httpdPlatDisconnect(ConnTypePtr conn);
 void httpdPlatDisableTimeout(ConnTypePtr conn);
 
-/* NOTE: listenAddress is in network byte order */
-HttpdInitStatus httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress, HttpdFlags flags);
-
-void httpdPlatLock();
-void httpdPlatUnlock();
+void httpdPlatLock(HttpdInstance *pInstance);
+void httpdPlatUnlock(HttpdInstance *pInstance);
 
 HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx);
 void httpdPlatTimerStart(HttpdPlatTimerHandle timer);

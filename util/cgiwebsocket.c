@@ -107,7 +107,7 @@ static int ICACHE_FLASH_ATTR sendFrameHead(Websock *ws, int opcode, int len) {
 	return httpdSend(ws->conn, buf, i);
 }
 
-int ICACHE_FLASH_ATTR cgiWebsocketSend(Websock *ws, const char *data, int len, int flags) {
+int ICACHE_FLASH_ATTR cgiWebsocketSend(HttpdInstance *pInstance, Websock *ws, const char *data, int len, int flags) {
 	int r=0;
 	int fl=0;
 
@@ -123,19 +123,19 @@ int ICACHE_FLASH_ATTR cgiWebsocketSend(Websock *ws, const char *data, int len, i
 
 	sendFrameHead(ws, fl, len);
 	if (len!=0) r=httpdSend(ws->conn, data, len);
-	httpdFlushSendBuffer(ws->conn);
+	httpdFlushSendBuffer(pInstance, ws->conn);
 	return r;
 }
 
 //Broadcast data to all websockets at a specific url. Returns the amount of connections sent to.
-int ICACHE_FLASH_ATTR cgiWebsockBroadcast(const char *resource, char *data, int len, int flags) {
+int ICACHE_FLASH_ATTR cgiWebsockBroadcast(HttpdInstance *pInstance, const char *resource, char *data, int len, int flags) {
 	Websock *lw=llStart;
 	int ret=0;
 	while (lw!=NULL) {
 		if (strcmp(lw->conn->url, resource)==0) {
-			httpdConnSendStart(lw->conn);
-			cgiWebsocketSend(lw, data, len, flags);
-			httpdConnSendFinish(lw->conn);
+			httpdConnSendStart(pInstance, lw->conn);
+			cgiWebsocketSend(pInstance, lw, data, len, flags);
+			httpdConnSendFinish(pInstance, lw->conn);
 			ret++;
 		}
 		lw=lw->priv->next;
@@ -144,12 +144,12 @@ int ICACHE_FLASH_ATTR cgiWebsockBroadcast(const char *resource, char *data, int 
 }
 
 
-void ICACHE_FLASH_ATTR cgiWebsocketClose(Websock *ws, int reason) {
+void ICACHE_FLASH_ATTR cgiWebsocketClose(HttpdInstance *pInstance, Websock *ws, int reason) {
 	char rs[2]={reason>>8, reason&0xff};
 	sendFrameHead(ws, FLAG_FIN|OPCODE_CLOSE, 2);
 	httpdSend(ws->conn, rs, 2);
 	ws->priv->closedHere=1;
-	httpdFlushSendBuffer(ws->conn);
+	httpdFlushSendBuffer(pInstance, ws->conn);
 }
 
 
@@ -168,7 +168,7 @@ static void ICACHE_FLASH_ATTR websockFree(Websock *ws) {
 	if (ws->priv) free(ws->priv);
 }
 
-CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data, int len) {
+CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdInstance *pInstance, HttpdConnData *connData, char *data, int len) {
 	int i, j, sl;
 	int r=HTTPD_CGI_MORE;
 	int wasHeaderByte;
@@ -228,7 +228,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data
 			//Inspect the header to see what we need to do.
 			if ((ws->priv->fr.flags&OPCODE_MASK)==OPCODE_PING) {
 				if (ws->priv->fr.len>125) {
-					if (!ws->priv->frameCont) cgiWebsocketClose(ws, 1002);
+					if (!ws->priv->frameCont) cgiWebsocketClose(pInstance, ws, 1002);
 					r=HTTPD_CGI_DONE;
 					break;
 				} else {
@@ -241,7 +241,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data
 				if (sl>ws->priv->fr.len) sl=ws->priv->fr.len;
 				if (!(ws->priv->fr.len8&IS_MASKED)) {
 					//We're a server; client should send us masked packets.
-					cgiWebsocketClose(ws, 1002);
+					cgiWebsocketClose(pInstance, ws, 1002);
 					r=HTTPD_CGI_DONE;
 					break;
 				} else {
@@ -254,7 +254,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiWebSocketRecv(HttpdConnData *connData, char *data
 				httpd_printf("WS: Got close frame\n");
 				if (!ws->priv->closedHere) {
 					httpd_printf("WS: Sending response close frame\n");
-					cgiWebsocketClose(ws, ((data[i]<<8)&0xff00)+(data[i+1]&0xff));
+					cgiWebsocketClose(pInstance, ws, ((data[i]<<8)&0xff00)+(data[i+1]&0xff));
 				}
 				r=HTTPD_CGI_DONE;
 				break;

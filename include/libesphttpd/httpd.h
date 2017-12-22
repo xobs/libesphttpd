@@ -58,9 +58,11 @@ typedef enum
 typedef struct HttpdPriv HttpdPriv;
 typedef struct HttpdConnData HttpdConnData;
 typedef struct HttpdPostData HttpdPostData;
+typedef struct HttpdInstance HttpdInstance;
+
 
 typedef CgiStatus (* cgiSendCallback)(HttpdConnData *connData);
-typedef CgiStatus (* cgiRecvHandler)(HttpdConnData *connData, char *data, int len);
+typedef CgiStatus (* cgiRecvHandler)(HttpdInstance *pInstance, HttpdConnData *connData, char *data, int len);
 
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
@@ -119,10 +121,14 @@ typedef enum
 	InitializationSuccess
 } HttpdInitStatus;
 
-HttpdInitStatus httpdInit(const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags);
+/** Common elements to the core server code */
+typedef struct HttpdInstance
+{
+	const HttpdBuiltInUrl *builtInUrls;
 
-/* NOTE: listenAddress is in network byte order */
-HttpdInitStatus httpdInitEx(const HttpdBuiltInUrl *fixedUrls, int port, uint32_t listenAddress, HttpdFlags flags);
+	//Connection pool
+	HttpdConnData *connData[HTTPD_MAX_CONNECTIONS];
+} HttpdInstance;
 
 const char *httpdGetMimetype(const char *url);
 void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
@@ -133,17 +139,20 @@ int httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLe
 int httpdSend(HttpdConnData *conn, const char *data, int len);
 int httpdSend_js(HttpdConnData *conn, const char *data, int len);
 int httpdSend_html(HttpdConnData *conn, const char *data, int len);
-void httpdFlushSendBuffer(HttpdConnData *conn);
-void httpdContinue(HttpdConnData *conn);
-void httpdConnSendStart(HttpdConnData *conn);
-void httpdConnSendFinish(HttpdConnData *conn);
+void httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnData *conn);
+void httpdContinue(HttpdInstance *pInstance, HttpdConnData *conn);
+void httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn);
+void httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime);
 
 //Platform dependent code should call these.
-void httpdSentCb(ConnTypePtr conn, char *remIp, int remPort);
-void httpdRecvCb(ConnTypePtr conn, char *remIp, int remPort, char *data, unsigned short len);
-void httpdDisconCb(ConnTypePtr conn, char *remIp, int remPort);
-int httpdConnectCb(ConnTypePtr conn, char *remIp, int remPort);
+void httpdSentCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+void httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort, char *data, unsigned short len);
+void httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+int httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
 
+#define esp_container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
 
 #endif

@@ -16,7 +16,6 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 
 #ifdef linux
 #include <libesphttpd/linux.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -28,58 +27,25 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #include "libesphttpd/httpd.h"
 #include "libesphttpd/platform.h"
 #include "httpd-platform.h"
+#include "libesphttpd/httpd-freertos.h"
 
 #ifdef FREERTOS
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-
-#ifdef ESP32
-#include "lwip/sockets.h"
-#else
-#include "lwip/lwip/sockets.h"
-#endif
-#endif // #ifdef FREERTOS
-
-static int httpPort;
-static int httpMaxConnCt;
-static struct sockaddr_in httpListenAddress;
-static HttpdFlags httpdFlags;
-
-#ifdef linux
-static pthread_mutex_t httpdMux;
-#else
-static xQueueHandle httpdMux;
 #endif
 
-#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-#include <openssl/ssl.h>
-#ifdef linux
-#include <openssl/err.h>
-#endif
-SSL_CTX *ctx;
-#endif
+#define fr_of_instance(instance) esp_container_of(instance, HttpdFreertosInstance, httpdInstance)
 
 
-struct  RtosConnType{
-	int fd;
-	int needWriteDoneNotif;
-	int needsClose;
-	int port;
-	char ip[4];
-#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	SSL *ssl;
-#endif
-};
-
-static RtosConnType rconn[HTTPD_MAX_CONNECTIONS];
-
-int ICACHE_FLASH_ATTR httpdPlatSendData(ConnTypePtr conn, char *buff, int len) {
+int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len) {
 	int bytesWritten;
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
 	conn->needWriteDoneNotif=1;
+
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	if(httpdFlags & HTTPD_FLAG_SSL)
+	if(pFR->httpdFlags & HTTPD_FLAG_SSL)
 	{
 		bytesWritten = SSL_write(conn->ssl, buff, len);
 	} else
@@ -100,30 +66,34 @@ void httpdPlatDisableTimeout(ConnTypePtr conn) {
 
 #ifdef linux
 //Set/clear global httpd lock.
-void ICACHE_FLASH_ATTR httpdPlatLock() {
-	pthread_mutex_lock(&httpdMux);
+void ICACHE_FLASH_ATTR httpdPlatLock(HttpdInstance *pInstance) {
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+	pthread_mutex_lock(&pFR->httpdMux);
 }
 
-void ICACHE_FLASH_ATTR httpdPlatUnlock() {
-	pthread_mutex_unlock(&httpdMux);
+void ICACHE_FLASH_ATTR httpdPlatUnlock(HttpdInstance *pInstance) {
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+	pthread_mutex_unlock(&pFR->httpdMux);
 }
 #else
 //Set/clear global httpd lock.
-void ICACHE_FLASH_ATTR httpdPlatLock() {
-	xSemaphoreTakeRecursive(httpdMux, portMAX_DELAY);
+void ICACHE_FLASH_ATTR httpdPlatLock(HttpdInstance *pInstance) {
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+	xSemaphoreTakeRecursive(pFR->httpdMux, portMAX_DELAY);
 }
 
-void ICACHE_FLASH_ATTR httpdPlatUnlock() {
-	xSemaphoreGiveRecursive(httpdMux);
+void ICACHE_FLASH_ATTR httpdPlatUnlock(HttpdInstance *pInstance) {
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+	xSemaphoreGiveRecursive(pFR->httpdMux);
 }
 #endif
 
-void closeConnection(RtosConnType *rconn)
+void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 {
-	httpdDisconCb(rconn, rconn->ip, rconn->port);
+	httpdDisconCb(&pInstance->httpdInstance, rconn, rconn->ip, rconn->port);
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	if(httpdFlags & HTTPD_FLAG_SSL)
+	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 	{
 		int retval;
 		retval = SSL_shutdown(rconn->ssl);
@@ -145,7 +115,7 @@ void closeConnection(RtosConnType *rconn)
 	rconn->fd=-1;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	if(httpdFlags & HTTPD_FLAG_SSL)
+	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 	{
 		SSL_free(rconn->ssl);
 		httpd_printf("SSL_free() complete\n");
@@ -229,30 +199,32 @@ static void platHttpServerTask(void *pvParameters) {
 	struct sockaddr_in server_addr;
 	struct sockaddr_in remote_addr;
 
+	HttpdFreertosInstance *pInstance = (HttpdFreertosInstance*)pvParameters;
+
 #ifdef linux
-	pthread_mutex_init(&httpdMux, NULL);
+	pthread_mutex_init(&pInstance->httpdMux, NULL);
 #else
-	httpdMux=xSemaphoreCreateRecursiveMutex();
+	pInstance->httpdMux = xSemaphoreCreateRecursiveMutex();
 #endif
 
 	for (x=0; x<HTTPD_MAX_CONNECTIONS; x++) {
-		rconn[x].fd=-1;
+		pInstance->rconn[x].fd=-1;
 	}
 
 	/* Construct local address structure */
 	memset(&server_addr, 0, sizeof(server_addr)); /* Zero out structure */
 	server_addr.sin_family = AF_INET;			/* Internet address family */
-	server_addr.sin_addr.s_addr = httpListenAddress.sin_addr.s_addr;
+	server_addr.sin_addr.s_addr = pInstance->httpListenAddress.sin_addr.s_addr;
 #ifndef linux
 	server_addr.sin_len = sizeof(server_addr);
 #endif
-	server_addr.sin_port = htons(httpPort); /* Local port */
+	server_addr.sin_port = htons(pInstance->httpPort); /* Local port */
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-	if(httpdFlags & HTTPD_FLAG_SSL)
+	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 	{
-		ctx = sslCreateContext();
-		if(!ctx)
+		pInstance->ctx = sslCreateContext();
+		if(!pInstance->ctx)
 		{
 			httpd_printf("%s: failed to create ssl context\n", __FUNCTION__);
 	#ifdef linux
@@ -303,7 +275,7 @@ static void platHttpServerTask(void *pvParameters) {
 		//timeout.tv_usec = 0;
 
 		for(x=0; x<HTTPD_MAX_CONNECTIONS; x++){
-			RtosConnType *pRconn = &(rconn[x]);
+			RtosConnType *pRconn = &(pInstance->rconn[x]);
 			if (pRconn->fd!=-1) {
 				FD_SET(pRconn->fd, &readset);
 				if (pRconn->needWriteDoneNotif) FD_SET(pRconn->fd, &writeset);
@@ -335,13 +307,13 @@ static void platHttpServerTask(void *pvParameters) {
 					httpd_printf("%s: Huh? Accept failed.\n", __FUNCTION__);
 					continue;
 				}
-				for(x=0; x<HTTPD_MAX_CONNECTIONS; x++) if (rconn[x].fd==-1) break;
+				for(x=0; x<HTTPD_MAX_CONNECTIONS; x++) if (pInstance->rconn[x].fd==-1) break;
 				if (x==HTTPD_MAX_CONNECTIONS) {
 					httpd_printf("%s: Huh? Got accept with all slots full.\n", __FUNCTION__);
 					continue;
 				}
 
-				RtosConnType *pRconn = &(rconn[x]);
+				RtosConnType *pRconn = &(pInstance->rconn[x]);
 
 				int keepAlive = 1; //enable keepalive
 				int keepIdle = 60; //60s
@@ -358,10 +330,10 @@ static void platHttpServerTask(void *pvParameters) {
 				pRconn->needsClose=0;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-				if(httpdFlags & HTTPD_FLAG_SSL)
+				if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 				{
 					httpd_printf("SSL server create ......\n");
-					pRconn->ssl = SSL_new(ctx);
+					pRconn->ssl = SSL_new(pInstance->ctx);
 					if (!pRconn->ssl) {
 						httpd_printf("SSL_new failed\n");
 						close(remotefd);
@@ -392,12 +364,12 @@ static void platHttpServerTask(void *pvParameters) {
 				pRconn->port = piname->sin_port;
 				memcpy(&pRconn->ip, &piname->sin_addr.s_addr, sizeof(pRconn->ip));
 
-				httpdConnectCb(pRconn, pRconn->ip, pRconn->port);
+				httpdConnectCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
 			}
 
 			//See if anything happened on the existing connections.
 			for(x=0; x < HTTPD_MAX_CONNECTIONS; x++){
-				RtosConnType *pRconn = &(rconn[x]);
+				RtosConnType *pRconn = &(pInstance->rconn[x]);
 
 				//Skip empty slots
 				if (pRconn->fd==-1) continue;
@@ -408,9 +380,9 @@ static void platHttpServerTask(void *pvParameters) {
 					pRconn->needWriteDoneNotif=0; //Do this first, httpdSentCb may write something making this 1 again.
 					if (pRconn->needsClose) {
 						//Do callback and close fd.
-						closeConnection(pRconn);
+						closeConnection(pInstance, pRconn);
 					} else {
-						httpdSentCb(pRconn, pRconn->ip, pRconn->port);
+						httpdSentCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
 					}
 				}
 
@@ -418,11 +390,11 @@ static void platHttpServerTask(void *pvParameters) {
 					precvbuf=(char*)malloc(RECV_BUF_SIZE);
 					if (precvbuf==NULL) {
 						httpd_printf("%s: memory exhausted!\n", __FUNCTION__);
-						httpdDisconCb(pRconn, pRconn->ip, pRconn->port);
-						closeConnection(pRconn);
+						httpdDisconCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
+						closeConnection(pInstance, pRconn);
 					}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-					if(httpdFlags & HTTPD_FLAG_SSL)
+					if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 					{
 						int bytesStillAvailable;
 
@@ -446,10 +418,10 @@ static void platHttpServerTask(void *pvParameters) {
 
 							if (ret > 0) {
 								//Data received. Pass to httpd.
-								httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+								httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
 							} else {
 								//recv error,connection close
-								closeConnection(pRconn);
+								closeConnection(pInstance, pRconn);
 							}
 						} while(bytesStillAvailable);
 					} else
@@ -459,10 +431,10 @@ static void platHttpServerTask(void *pvParameters) {
 
 						if (ret > 0) {
 							//Data received. Pass to httpd.
-							httpdRecvCb(pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
+							httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, precvbuf, ret);
 						} else {
 							//recv error,connection close
-							closeConnection(pRconn);
+							closeConnection(pInstance, pRconn);
 						}
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 					}
@@ -581,24 +553,48 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 }
 #endif
 
-//Initialize listening socket, do general initialization
-HttpdInitStatus ICACHE_FLASH_ATTR httpdPlatInit(int port, int maxConnCt, uint32_t listenAddress, HttpdFlags flags) {
-	HttpdInitStatus status = InitializationSuccess;
-	httpPort=port;
-	httpMaxConnCt=maxConnCt;
-	httpListenAddress.sin_addr.s_addr = listenAddress;
-	httpdFlags = flags;
+//Httpd initialization routine. Call this to kick off webserver functionality.
+HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
+				const HttpdBuiltInUrl *fixedUrls, int port,
+				uint32_t listenAddress, HttpdFlags flags)
+{
+	int i;
+	HttpdInitStatus status;
+
+	for (i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
+		pInstance->httpdInstance.connData[i]=NULL;
+	}
+	pInstance->httpdInstance.builtInUrls=fixedUrls;
+
+	status = InitializationSuccess;
+	pInstance->httpPort = port;
+	pInstance->httpMaxConnCt = HTTPD_MAX_CONNECTIONS;
+	pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
+	pInstance->httpdFlags = flags;
 
 #ifdef linux
 	pthread_t thread;
-	pthread_create(&thread, NULL, platHttpServerTask, NULL);
+	pthread_create(&thread, NULL, platHttpServerTask, pInstance);
 #else
 #ifdef ESP32
-	xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
+	xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
 #else
-	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, NULL, 4, NULL);
+	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
 #endif
 #endif
+
+	httpd_printf("%s port %d\n", __FUNCTION__, port);
+
+	return status;
+}
+
+HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInstance,
+				const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags)
+{
+	HttpdInitStatus status;
+
+	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, flags);
+	httpd_printf("%s init\n", __FUNCTION__);
 
 	return status;
 }
