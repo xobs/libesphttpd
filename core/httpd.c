@@ -25,16 +25,6 @@ Http server - core routines
 
 const static char* TAG = "httpd";
 
-typedef struct HttpSendBacklogItem HttpSendBacklogItem;
-
-#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-struct HttpSendBacklogItem {
-	int len;
-	HttpSendBacklogItem *next;
-	char data[];
-};
-#endif
-
 //Flags
 #define HFL_HTTP11 (1<<0)
 #define HFL_CHUNKED (1<<1)
@@ -42,22 +32,6 @@ struct HttpSendBacklogItem {
 #define HFL_DISCONAFTERSENT (1<<3)
 #define HFL_NOCONNECTIONSTR (1<<4)
 
-//Private data for http connection
-struct HttpdPriv {
-	char head[HTTPD_MAX_HEAD_LEN];
-#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
-	char corsToken[MAX_CORS_TOKEN_LEN];
-#endif
-	int headPos;
-	char *sendBuff;
-	int sendBuffLen;
-	char *chunkHdr;
-#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-	HttpSendBacklogItem *sendBacklog;
-	int sendBacklogSize;
-#endif
-	int flags;
-};
 
 //Struct to keep extension->mime data in
 typedef struct {
@@ -133,9 +107,9 @@ static HttpdConnData ICACHE_FLASH_ATTR *httpdFindConnData(HttpdInstance *pInstan
 //Retires a connection for re-use
 static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdConnData *conn) {
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-	if (conn->priv->sendBacklog!=NULL) {
+	if (conn->priv.sendBacklog!=NULL) {
 		HttpSendBacklogItem *i, *j;
-		i=conn->priv->sendBacklog;
+		i=conn->priv.sendBacklog;
 		do {
 			j=i;
 			i=i->next;
@@ -144,7 +118,6 @@ static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdCon
 	}
 #endif
 	if (conn->post.buff!=NULL) free(conn->post.buff);
-	if (conn->priv!=NULL) free(conn->priv);
 	if (conn) free(conn);
 	for (int i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
 		if (pInstance->connData[i]==conn) pInstance->connData[i]=NULL;
@@ -214,10 +187,10 @@ int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLe
 //Get the value of a certain header in the HTTP client head
 //Returns true when found, false when not found.
 int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen) {
-	char *p=conn->priv->head;
+	char *p=conn->priv.head;
 	p=p+strlen(p)+1; //skip GET/POST part
 	p=p+strlen(p)+1; //skip HTTP part
-	while (p<(conn->priv->head+conn->priv->headPos)) {
+	while (p<(conn->priv.head+conn->priv.headPos)) {
 		while(*p<=32 && *p!=0) p++; //skip crap at start
 		//See if this is the header
 		if (strncasecmp(p, header, strlen(header))==0 && p[strlen(header)]==':') {
@@ -242,14 +215,14 @@ int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, ch
 
 void ICACHE_FLASH_ATTR httpdSetTransferMode(HttpdConnData *conn, TransferModes mode) {
 	if (mode==HTTPD_TRANSFER_CLOSE) {
-		conn->priv->flags&=~HFL_CHUNKED;
-		conn->priv->flags&=~HFL_NOCONNECTIONSTR;
+		conn->priv.flags&=~HFL_CHUNKED;
+		conn->priv.flags&=~HFL_NOCONNECTIONSTR;
 	} else if (mode==HTTPD_TRANSFER_CHUNKED) {
-		conn->priv->flags|=HFL_CHUNKED;
-		conn->priv->flags&=~HFL_NOCONNECTIONSTR;
+		conn->priv.flags|=HFL_CHUNKED;
+		conn->priv.flags&=~HFL_NOCONNECTIONSTR;
 	} else if (mode==HTTPD_TRANSFER_NONE) {
-		conn->priv->flags&=~HFL_CHUNKED;
-		conn->priv->flags|=HFL_NOCONNECTIONSTR;
+		conn->priv.flags&=~HFL_CHUNKED;
+		conn->priv.flags|=HFL_NOCONNECTIONSTR;
 	}
 }
 
@@ -258,10 +231,10 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
 	char buff[256];
 	int l;
 	const char *connStr="Connection: close\r\n";
-	if (conn->priv->flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
-	if (conn->priv->flags&HFL_NOCONNECTIONSTR) connStr="";
+	if (conn->priv.flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
+	if (conn->priv.flags&HFL_NOCONNECTIONSTR) connStr="";
 	l=snprintf(buff, sizeof(buff), "HTTP/1.%d %d OK\r\nServer: esp-httpd/"HTTPDVER"\r\n%s",
-			(conn->priv->flags&HFL_HTTP11)?1:0,
+			(conn->priv.flags&HFL_HTTP11)?1:0,
 			code,
 			connStr);
 	httpdSend(conn, buff, l);
@@ -284,7 +257,7 @@ void ICACHE_FLASH_ATTR httpdHeader(HttpdConnData *conn, const char *field, const
 //Finish the headers.
 void ICACHE_FLASH_ATTR httpdEndHeaders(HttpdConnData *conn) {
 	httpdSend(conn, "\r\n", -1);
-	conn->priv->flags|=HFL_SENDINGBODY;
+	conn->priv.flags|=HFL_SENDINGBODY;
 }
 
 //Redirect to the given URL.
@@ -392,16 +365,16 @@ int ICACHE_FLASH_ATTR httpdSend(HttpdConnData *conn, const char *data, int len) 
 	if (conn->conn==NULL) return 0;
 	if (len<0) len=strlen(data);
 	if (len==0) return 0;
-	if (conn->priv->flags&HFL_CHUNKED && conn->priv->flags&HFL_SENDINGBODY && conn->priv->chunkHdr==NULL) {
-		if (conn->priv->sendBuffLen+len+6>HTTPD_MAX_SENDBUFF_LEN) return 0;
+	if (conn->priv.flags&HFL_CHUNKED && conn->priv.flags&HFL_SENDINGBODY && conn->priv.chunkHdr==NULL) {
+		if (conn->priv.sendBuffLen+len+6>HTTPD_MAX_SENDBUFF_LEN) return 0;
 		//Establish start of chunk
-		conn->priv->chunkHdr=&conn->priv->sendBuff[conn->priv->sendBuffLen];
-		strcpy(conn->priv->chunkHdr, "0000\r\n");
-		conn->priv->sendBuffLen+=6;
+		conn->priv.chunkHdr=&conn->priv.sendBuff[conn->priv.sendBuffLen];
+		strcpy(conn->priv.chunkHdr, "0000\r\n");
+		conn->priv.sendBuffLen+=6;
 	}
-	if (conn->priv->sendBuffLen+len>HTTPD_MAX_SENDBUFF_LEN) return 0;
-	memcpy(conn->priv->sendBuff+conn->priv->sendBuffLen, data, len);
-	conn->priv->sendBuffLen+=len;
+	if (conn->priv.sendBuffLen+len>HTTPD_MAX_SENDBUFF_LEN) return 0;
+	memcpy(conn->priv.sendBuff+conn->priv.sendBuffLen, data, len);
+	conn->priv.sendBuffLen+=len;
 	return 1;
 }
 
@@ -478,74 +451,74 @@ int ICACHE_FLASH_ATTR httpdSend_js(HttpdConnData *conn, const char *data, int le
 	return 1;
 }
 
-//Function to send any data in conn->priv->sendBuff. Do not use in CGIs unless you know what you
+//Function to send any data in conn->priv.sendBuff. Do not use in CGIs unless you know what you
 //are doing! Also, if you do set conn->cgi to NULL to indicate the connection is closed, do it BEFORE
 //calling this.
 void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnData *conn) {
 	int r, len;
 	if (conn->conn==NULL) return;
-	if (conn->priv->chunkHdr!=NULL) {
+	if (conn->priv.chunkHdr!=NULL) {
 		//We're sending chunked data, and the chunk needs fixing up.
 		//Finish chunk with cr/lf
 		httpdSend(conn, "\r\n", 2);
 		//Calculate length of chunk
-		len=((&conn->priv->sendBuff[conn->priv->sendBuffLen])-conn->priv->chunkHdr)-8;
+		len=((&conn->priv.sendBuff[conn->priv.sendBuffLen])-conn->priv.chunkHdr)-8;
 		//Fix up chunk header to correct value
-		conn->priv->chunkHdr[0]=httpdHexNibble(len>>12);
-		conn->priv->chunkHdr[1]=httpdHexNibble(len>>8);
-		conn->priv->chunkHdr[2]=httpdHexNibble(len>>4);
-		conn->priv->chunkHdr[3]=httpdHexNibble(len>>0);
+		conn->priv.chunkHdr[0]=httpdHexNibble(len>>12);
+		conn->priv.chunkHdr[1]=httpdHexNibble(len>>8);
+		conn->priv.chunkHdr[2]=httpdHexNibble(len>>4);
+		conn->priv.chunkHdr[3]=httpdHexNibble(len>>0);
 		//Reset chunk hdr for next call
-		conn->priv->chunkHdr=NULL;
+		conn->priv.chunkHdr=NULL;
 	}
-	if (conn->priv->flags&HFL_CHUNKED && conn->priv->flags&HFL_SENDINGBODY && conn->cgi==NULL) {
+	if (conn->priv.flags&HFL_CHUNKED && conn->priv.flags&HFL_SENDINGBODY && conn->cgi==NULL) {
 		//Connection finished sending whatever needs to be sent. Add NULL chunk to indicate this.
-		strcpy(&conn->priv->sendBuff[conn->priv->sendBuffLen], "0\r\n\r\n");
-		conn->priv->sendBuffLen+=5;
+		strcpy(&conn->priv.sendBuff[conn->priv.sendBuffLen], "0\r\n\r\n");
+		conn->priv.sendBuffLen+=5;
 	}
-	if (conn->priv->sendBuffLen!=0) {
-		r = httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBuff, conn->priv->sendBuffLen);
-		if (r != conn->priv->sendBuffLen) {
+	if (conn->priv.sendBuffLen!=0) {
+		r = httpdPlatSendData(pInstance, conn->conn, conn->priv.sendBuff, conn->priv.sendBuffLen);
+		if (r != conn->priv.sendBuffLen) {
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 			//Can't send this for some reason. Dump packet in backlog, we can send it later.
-			if (conn->priv->sendBacklogSize+conn->priv->sendBuffLen>HTTPD_MAX_BACKLOG_SIZE) {
-				ESP_LOGE(TAG, "Backlog: Exceeded max backlog size, dropped %d bytes", conn->priv->sendBuffLen);
-				conn->priv->sendBuffLen=0;
+			if (conn->priv.sendBacklogSize+conn->priv.sendBuffLen>HTTPD_MAX_BACKLOG_SIZE) {
+				ESP_LOGE(TAG, "Backlog: Exceeded max backlog size, dropped %d bytes", conn->priv.sendBuffLen);
+				conn->priv.sendBuffLen=0;
 				return;
 			}
-			HttpSendBacklogItem *i=malloc(sizeof(HttpSendBacklogItem)+conn->priv->sendBuffLen);
+			HttpSendBacklogItem *i=malloc(sizeof(HttpSendBacklogItem)+conn->priv.sendBuffLen);
 			if (i==NULL) {
 				ESP_LOGE(TAG, "Backlog: malloc failed");
 				return;
 			}
-			memcpy(i->data, conn->priv->sendBuff, conn->priv->sendBuffLen);
-			i->len=conn->priv->sendBuffLen;
+			memcpy(i->data, conn->priv.sendBuff, conn->priv.sendBuffLen);
+			i->len=conn->priv.sendBuffLen;
 			i->next=NULL;
-			if (conn->priv->sendBacklog==NULL) {
-				conn->priv->sendBacklog=i;
+			if (conn->priv.sendBacklog==NULL) {
+				conn->priv.sendBacklog=i;
 			} else {
-				HttpSendBacklogItem *e=conn->priv->sendBacklog;
+				HttpSendBacklogItem *e=conn->priv.sendBacklog;
 				while (e->next!=NULL) e=e->next;
 				e->next=i;
 			}
-			conn->priv->sendBacklogSize+=conn->priv->sendBuffLen;
+			conn->priv.sendBacklogSize+=conn->priv.sendBuffLen;
 #else
-			ESP_LOGE(TAG, "send buf tried to write %d bytes, wrote %d", conn->priv->sendBuffLen, r);
+			ESP_LOGE(TAG, "send buf tried to write %d bytes, wrote %d", conn->priv.sendBuffLen, r);
 #endif
 		}
-		conn->priv->sendBuffLen=0;
+		conn->priv.sendBuffLen=0;
 	}
 }
 
 void ICACHE_FLASH_ATTR httpdCgiIsDone(HttpdInstance *pInstance, HttpdConnData *conn) {
 	conn->cgi=NULL; //no need to call this anymore
-	if (conn->priv->flags&HFL_CHUNKED) {
+	if (conn->priv.flags&HFL_CHUNKED) {
 		ESP_LOGD(TAG, "Pool slot %d done, cleaning up", conn->slot);
 		httpdFlushSendBuffer(pInstance, conn);
 		//Note: Do not clean up sendBacklog, it may still contain data at this point.
-		conn->priv->headPos=0;
+		conn->priv.headPos=0;
 		conn->post.len=-1;
-		conn->priv->flags=0;
+		conn->priv.flags=0;
 		if (conn->post.buff) free(conn->post.buff);
 		conn->post.buff=NULL;
 		conn->post.buffLen=0;
@@ -553,7 +526,7 @@ void ICACHE_FLASH_ATTR httpdCgiIsDone(HttpdInstance *pInstance, HttpdConnData *c
 		conn->hostName=NULL;
 	} else {
 		//Cannot re-use this connection. Mark to get it killed after all data is sent.
-		conn->priv->flags|=HFL_DISCONAFTERSENT;
+		conn->priv.flags|=HFL_DISCONAFTERSENT;
 	}
 }
 
@@ -575,23 +548,23 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 	if (conn==NULL) return;
 
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-	if (conn->priv->sendBacklog!=NULL) {
+	if (conn->priv.sendBacklog!=NULL) {
 		//We have some backlog to send first.
-		HttpSendBacklogItem *next=conn->priv->sendBacklog->next;
-		int bytesWritten = httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBacklog->data, conn->priv->sendBacklog->len);
-		if(bytesWritten != conn->priv->sendBacklog->len)
+		HttpSendBacklogItem *next=conn->priv.sendBacklog->next;
+		int bytesWritten = httpdPlatSendData(pInstance, conn->conn, conn->priv.sendBacklog->data, conn->priv.sendBacklog->len);
+		if(bytesWritten != conn->priv.sendBacklog->len)
 		{
-			ESP_LOGE(TAG, "tried to write %d bytes, wrote %d", conn->priv->sendBacklog->len, bytesWritten);
+			ESP_LOGE(TAG, "tried to write %d bytes, wrote %d", conn->priv.sendBacklog->len, bytesWritten);
 		}
-		conn->priv->sendBacklogSize-=conn->priv->sendBacklog->len;
-		free(conn->priv->sendBacklog);
-		conn->priv->sendBacklog=next;
+		conn->priv.sendBacklogSize-=conn->priv.sendBacklog->len;
+		free(conn->priv.sendBacklog);
+		conn->priv.sendBacklog=next;
 		httpdPlatUnlock(pInstance);
 		return;
 	}
 #endif
 
-	if (conn->priv->flags&HFL_DISCONAFTERSENT) { //Marked for destruction?
+	if (conn->priv.flags&HFL_DISCONAFTERSENT) { //Marked for destruction?
 		ESP_LOGD(TAG, "Pool slot %d done, closing", conn->slot);
 		httpdPlatDisconnect(conn->conn);
 		httpdPlatUnlock(pInstance);
@@ -610,8 +583,8 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 		httpdPlatUnlock(pInstance);
 		return;
 	}
-	conn->priv->sendBuff=sendBuff;
-	conn->priv->sendBuffLen=0;
+	conn->priv.sendBuff=sendBuff;
+	conn->priv.sendBuffLen=0;
 	r=conn->cgi(conn); //Execute cgi fn.
 	if (r==HTTPD_CGI_DONE) {
 		httpdCgiIsDone(pInstance, conn);
@@ -641,7 +614,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
 	// CORS preflight, allow the token we received before
 	if (conn->requestType == HTTPD_METHOD_OPTIONS) {
 		httpdStartResponse(conn, 200);
-		httpdHeader(conn, "Access-Control-Allow-Headers", conn->priv->corsToken);
+		httpdHeader(conn, "Access-Control-Allow-Headers", conn->priv.corsToken);
 		httpdEndHeaders(conn);
 		httpdCgiIsDone(pInstance, conn);
 
@@ -746,7 +719,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		e++; //Skip to protocol indicator
 		while (*e==' ') e++; //Skip spaces.
 		//If HTTP/1.1, note that and set chunked encoding
-		if (strcasecmp(e, "HTTP/1.1")==0) conn->priv->flags|=HFL_HTTP11|HFL_CHUNKED;
+		if (strcasecmp(e, "HTTP/1.1")==0) conn->priv.flags|=HFL_HTTP11|HFL_CHUNKED;
 
 		ESP_LOGD(TAG, "URL = %s", conn->url);
 		//Parse out the URL part before the GET parameters.
@@ -762,7 +735,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		i=11;
 		//Skip trailing spaces
 		while (h[i]==' ') i++;
-		if (strncmp(&h[i], "close", 5)==0) conn->priv->flags&=~HFL_CHUNKED; //Don't use chunked conn
+		if (strncmp(&h[i], "close", 5)==0) conn->priv.flags&=~HFL_CHUNKED; //Don't use chunked conn
 	} else if (strncasecmp(h, "Content-Length:", 15)==0) {
 		i=15;
 		//Skip trailing spaces
@@ -802,7 +775,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		// the connection token storage
 		ESP_LOGD(TAG, "CORS preflight request");
 
-		strncpy(conn->priv->corsToken, h+strlen("Access-Control-Request-Headers: "), MAX_CORS_TOKEN_LEN);
+		strncpy(conn->priv.corsToken, h+strlen("Access-Control-Request-Headers: "), MAX_CORS_TOKEN_LEN);
 	}
 #endif
 }
@@ -817,14 +790,14 @@ void ICACHE_FLASH_ATTR httpdConnSendStart(HttpdInstance *pInstance, HttpdConnDat
 		ESP_LOGE(TAG, "Malloc sendBuff");
 		return;
 	}
-	conn->priv->sendBuff=sendBuff;
-	conn->priv->sendBuffLen=0;
+	conn->priv.sendBuff=sendBuff;
+	conn->priv.sendBuffLen=0;
 }
 
 //Finish the live-ness of a connection. Always call this after httpdConnStart
 void ICACHE_FLASH_ATTR httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn) {
 	if (conn->conn) httpdFlushSendBuffer(pInstance, conn);
-	free(conn->priv->sendBuff);
+	free(conn->priv.sendBuff);
 	httpdPlatUnlock(pInstance);
 }
 
@@ -846,10 +819,10 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 		httpdPlatUnlock(pInstance);
 		return;
 	}
-	conn->priv->sendBuff=sendBuff;
-	conn->priv->sendBuffLen=0;
+	conn->priv.sendBuff=sendBuff;
+	conn->priv.sendBuffLen=0;
 #ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
-	conn->priv->corsToken[0] = 0;
+	conn->priv.corsToken[0] = 0;
 #endif
 
 	//This is slightly evil/dirty: we abuse conn->post.len as a state variable for where in the http communications we are:
@@ -863,22 +836,22 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 			//This byte is a header byte.
 			if (data[x]=='\n') {
 				//Compatibility with clients that send \n only: fake a \r in front of this.
-				if (conn->priv->headPos!=0 && conn->priv->head[conn->priv->headPos-1]!='\r') {
-					conn->priv->head[conn->priv->headPos++]='\r';
+				if (conn->priv.headPos!=0 && conn->priv.head[conn->priv.headPos-1]!='\r') {
+					conn->priv.head[conn->priv.headPos++]='\r';
 				}
 			}
 			//ToDo: return http error code 431 (request header too long) if this happens
-			if (conn->priv->headPos<HTTPD_MAX_HEAD_LEN-1) conn->priv->head[conn->priv->headPos++]=data[x];
-			conn->priv->head[conn->priv->headPos]=0;
+			if (conn->priv.headPos<HTTPD_MAX_HEAD_LEN-1) conn->priv.head[conn->priv.headPos++]=data[x];
+			conn->priv.head[conn->priv.headPos]=0;
 			//Scan for /r/n/r/n. Receiving this indicate the headers end.
-			if (data[x]=='\n' && (char *)strstr(conn->priv->head, "\r\n\r\n")!=NULL) {
+			if (data[x]=='\n' && (char *)strstr(conn->priv.head, "\r\n\r\n")!=NULL) {
 				//Indicate we're done with the headers.
 				conn->post.len=0;
 				//Reset url data
 				conn->url=NULL;
 				//Iterate over all received headers and parse them.
-				p=conn->priv->head;
-				while(p<(&conn->priv->head[conn->priv->headPos-4])) {
+				p=conn->priv.head;
+				while(p<(&conn->priv.head[conn->priv.headPos-4])) {
 					e=(char *)strstr(p, "\r\n"); //Find end of header line
 					if (e==NULL) break;			//Shouldn't happen.
 					e[0]=0;						//Zero-terminate header
@@ -967,11 +940,10 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 		return 0;
 	}
 	memset(pConnData, 0, sizeof(HttpdConnData));
-	pConnData->priv=malloc(sizeof(HttpdPriv));
-	memset(pConnData->priv, 0, sizeof(HttpdPriv));
+	memset(&pConnData->priv, 0, sizeof(HttpdPriv));
 	pConnData->conn=conn;
 	pConnData->slot=i;
-	pConnData->priv->headPos=0;
+	pConnData->priv.headPos=0;
 	memset(&pConnData->post, 0, sizeof(HttpdPostData));
 	pConnData->post.buff=NULL;
 	pConnData->post.buffLen=0;
@@ -980,8 +952,8 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	pConnData->hostName=NULL;
 	pConnData->remote_port=remPort;
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-	pConnData->priv->sendBacklog=NULL;
-	pConnData->priv->sendBacklogSize=0;
+	pConnData->priv.sendBacklog=NULL;
+	pConnData->priv.sendBacklogSize=0;
 #endif
 	memcpy(pConnData->remote_ip, remIp, 4);
 

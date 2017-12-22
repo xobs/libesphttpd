@@ -64,6 +64,31 @@ typedef struct HttpdInstance HttpdInstance;
 typedef CgiStatus (* cgiSendCallback)(HttpdConnData *connData);
 typedef CgiStatus (* cgiRecvHandler)(HttpdInstance *pInstance, HttpdConnData *connData, char *data, int len);
 
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
+struct HttpSendBacklogItem {
+	int len;
+	HttpSendBacklogItem *next;
+	char data[];
+};
+#endif
+
+//Private data for http connection
+struct HttpdPriv {
+	char head[HTTPD_MAX_HEAD_LEN];
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
+	char corsToken[MAX_CORS_TOKEN_LEN];
+#endif
+	int headPos;
+	char *sendBuff;
+	int sendBuffLen;
+	char *chunkHdr;
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
+	HttpSendBacklogItem *sendBacklog;
+	int sendBacklogSize;
+#endif
+	int flags;
+};
+
 //A struct describing the POST data sent inside the http connection.  This is used by the CGI functions
 struct HttpdPostData {
 	int len;				// POST Content-Length
@@ -85,7 +110,7 @@ struct HttpdConnData {
 	const void *cgiArg2;	// 4th argument of the builtInUrls entries, used to pass template file to the tpl handler.
 	void *cgiData;			// Opaque data pointer for the CGI function
 	char *hostName;			// Host name field of request
-	HttpdPriv *priv;		// Opaque pointer to data for internal httpd housekeeping
+	HttpdPriv priv;		// Data for internal httpd housekeeping
 	cgiSendCallback cgi;	// CGI function pointer
 	cgiRecvHandler recvHdl;	// Handler for data received after headers, if any
 	HttpdPostData post;	// POST data structure
