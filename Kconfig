@@ -60,3 +60,13 @@ config ESPHTTPD_SSL_SUPPORT
 		- Create a 'component.mk' file in your app directory and add these lines to it:
 			COMPONENT_EMBED_TXTFILES := cacert.der
 			COMPONENT_EMBED_TXTFILES += prvtkey.der
+
+config ESPHTTPD_BACKLOG_SUPPORT
+	bool "Write data to backlog when it can't be sent"
+        depends on ESPHTTPD_ENABLED
+	default n
+	help
+		A non-os specific option. FreeRTOS uses blocking sockets so data will always be sent and there is
+		no need for the backlog.
+
+		If you are using FreeRTOS you'll save codespace by leaving this option disabled.

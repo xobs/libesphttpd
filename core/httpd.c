@@ -23,11 +23,13 @@ Http server - core routines
 
 typedef struct HttpSendBacklogItem HttpSendBacklogItem;
 
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 struct HttpSendBacklogItem {
 	int len;
 	HttpSendBacklogItem *next;
 	char data[];
 };
+#endif
 
 //Flags
 #define HFL_HTTP11 (1<<0)
@@ -46,8 +48,10 @@ struct HttpdPriv {
 	char *sendBuff;
 	int sendBuffLen;
 	char *chunkHdr;
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	HttpSendBacklogItem *sendBacklog;
 	int sendBacklogSize;
+#endif
 	int flags;
 };
 
@@ -124,6 +128,7 @@ static HttpdConnData ICACHE_FLASH_ATTR *httpdFindConnData(HttpdInstance *pInstan
 
 //Retires a connection for re-use
 static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdConnData *conn) {
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	if (conn->priv->sendBacklog!=NULL) {
 		HttpSendBacklogItem *i, *j;
 		i=conn->priv->sendBacklog;
@@ -133,6 +138,7 @@ static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdCon
 			free(j);
 		} while (i!=NULL);
 	}
+#endif
 	if (conn->post->buff!=NULL) free(conn->post->buff);
 	if (conn->post!=NULL) free(conn->post);
 	if (conn->priv!=NULL) free(conn->priv);
@@ -499,6 +505,7 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 	if (conn->priv->sendBuffLen!=0) {
 		r = httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBuff, conn->priv->sendBuffLen);
 		if (r != conn->priv->sendBuffLen) {
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 			//Can't send this for some reason. Dump packet in backlog, we can send it later.
 			if (conn->priv->sendBacklogSize+conn->priv->sendBuffLen>HTTPD_MAX_BACKLOG_SIZE) {
 				httpd_printf("Httpd: Backlog: Exceeded max backlog size, dropped %d bytes instead of sending them.\n", conn->priv->sendBuffLen);
@@ -521,6 +528,9 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 				e->next=i;
 			}
 			conn->priv->sendBacklogSize+=conn->priv->sendBuffLen;
+#else
+			httpd_printf("ERROR: flush send buf tried to write %d bytes, wrote %d\n", conn->priv->sendBuffLen, r);
+#endif
 		}
 		conn->priv->sendBuffLen=0;
 	}
@@ -563,6 +573,7 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 
 	if (conn==NULL) return;
 
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	if (conn->priv->sendBacklog!=NULL) {
 		//We have some backlog to send first.
 		HttpSendBacklogItem *next=conn->priv->sendBacklog->next;
@@ -577,6 +588,7 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 		httpdPlatUnlock(pInstance);
 		return;
 	}
+#endif
 
 	if (conn->priv->flags&HFL_DISCONAFTERSENT) { //Marked for destruction?
 		httpd_printf("Pool slot %d is done. Closing.\n", conn->slot);
@@ -972,8 +984,10 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	pConnData->post->len=-1;
 	pConnData->hostName=NULL;
 	pConnData->remote_port=remPort;
+#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	pConnData->priv->sendBacklog=NULL;
 	pConnData->priv->sendBacklogSize=0;
+#endif
 	memcpy(pConnData->remote_ip, remIp, 4);
 
 	httpdPlatUnlock(pInstance);
