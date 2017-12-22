@@ -16,6 +16,9 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
 #include "libesphttpd/espfs.h"
 #include "espfsformat.h"
 
+#include "esp_log.h"
+const static char* TAG = "httpdespfs";
+
 #define FILE_CHUNK_LEN    1024
 
 // The static files marked with FLAG_GZIP are compressed and will be served with GZIP compression.
@@ -86,7 +89,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 
 	// invalid call.
 	if (filepath == NULL) {
-		httpd_printf("serveStaticFile called with NULL path!");
+		ESP_LOGE(TAG, "serveStaticFile called with NULL path");
 		return HTTPD_CGI_NOTFOUND;
 	}
 
@@ -210,7 +213,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		//First call to this cgi. Open the file so we can read it.
 		tpd=(TplData *)malloc(sizeof(TplData));
 		if (tpd==NULL) {
-			httpd_printf("Failed to malloc tpl struct");
+			ESP_LOGE(TAG, "Failed to malloc tpl struct");
 			return HTTPD_CGI_NOTFOUND;
 		}
 
@@ -220,7 +223,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		// check for custom template URL
 		if (connData->cgiArg2 != NULL) {
 			filepath = connData->cgiArg2;
-			httpd_printf("Using filepath %s", filepath);
+			ESP_LOGD(TAG, "Using filepath %s", filepath);
 		}
 
 		tpd->file = espFsOpen(filepath);
@@ -237,7 +240,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		tpd->tplArg=NULL;
 		tpd->tokenPos=-1;
 		if (espFsFlags(tpd->file) & FLAG_GZIP) {
-			httpd_printf("cgiEspFsTemplate: Trying to use gzip-compressed file %s as template!", connData->url);
+			ESP_LOGE(TAG, "cgiEspFsTemplate: Trying to use gzip-compressed file %s as template", connData->url);
 			espFsClose(tpd->file);
 			free(tpd);
 			return HTTPD_CGI_NOTFOUND;
@@ -379,7 +382,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	if (len!=FILE_CHUNK_LEN) {
 		//We're done.
 		((TplCallback)(connData->cgiArg))(connData, NULL, &tpd->tplArg);
-		httpd_printf("Template sent.");
+		ESP_LOGD(TAG, "Template sent");
 		espFsClose(tpd->file);
 		free(tpd);
 		return HTTPD_CGI_DONE;

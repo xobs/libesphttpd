@@ -70,7 +70,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 	httpdEndHeaders(connData);
 	char *next = id == 1 ? "user1.bin" : "user2.bin";
 	httpdSend(connData, next, -1);
-	httpd_printf("Next firmware: %s (got %d)\n", next, id);
+	ESP_LOGD(TAG, "Next firmware: %s (got %d)", next, id);
 	return HTTPD_CGI_DONE;
 }
 
@@ -143,10 +143,10 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 	if (state == NULL) {
 		//First call. Allocate and initialize state variable.
-		httpd_printf("Firmware upload cgi start.\n");
+		ESP_LOGD(TAG, "Firmware upload cgi start");
 		state = malloc(sizeof(UploadState));
 		if (state==NULL) {
-			httpd_printf("Can't allocate firmware upload struct!\n");
+			ESP_LOGE(TAG, "Can't allocate firmware upload struct");
 			return HTTPD_CGI_DONE;
 		}
 		memset(state, 0, sizeof(UploadState));
@@ -185,7 +185,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 			if (def->type==CGIFLASH_TYPE_FW && memcmp(data, "EHUG", 4)==0) {
 				state->err="Combined flash images are unneeded/unsupported on ESP32!";
 				state->state=FLST_ERROR;
-				httpd_printf("Combined flash image not supported on ESP32!\n");
+				ESP_LOGE(TAG, "Combined flash image not supported on ESP32!");
 			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post->buff)) {
 				state->update_partition = esp_ota_get_next_update_partition(NULL);
 				ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
@@ -212,7 +212,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 			} else {
 				state->err="Invalid flash image type!";
 				state->state=FLST_ERROR;
-				httpd_printf("Did not recognize flash image type!\n");
+				ESP_LOGE(TAG, "Did not recognize flash image type");
 			}
 		} else if (state->state==FLST_WRITE) {
 			err = esp_ota_write(state->update_handle, data, dataLen);
@@ -228,7 +228,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 			dataLen = 0;
 		} else if (state->state==FLST_DONE) {
-			httpd_printf("Huh? %d bogus bytes received after data received.\n", dataLen);
+			ESP_LOGE(TAG, "%d bogus bytes received after data received", dataLen);
 			//Ignore those bytes.
 			dataLen=0;
 		} else if (state->state==FLST_ERROR) {
@@ -246,7 +246,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 	if (connData->post->len == connData->post->received) {
 		//We're done! Format a response.
-		httpd_printf("Upload done. Sending response.\n");
+		ESP_LOGD(TAG, "Upload done. Sending response");
 		httpdStartResponse(connData, state->state==FLST_ERROR?400:200);
 		httpdHeader(connData, "Content-Type", "text/plain");
 		httpdEndHeaders(connData);
@@ -286,10 +286,10 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 	if (state==NULL) {
 		//First call. Allocate and initialize state variable.
-		httpd_printf("Firmware upload cgi start.\n");
+		ESP_LOGE(TAG, "Firmware upload cgi start");
 		state=malloc(sizeof(UploadState));
 		if (state==NULL) {
-			httpd_printf("Can't allocate firmware upload struct!\n");
+			ESP_LOGE(TAG, "Can't allocate firmware upload struct");
 			return HTTPD_CGI_DONE;
 		}
 		memset(state, 0, sizeof(UploadState));
@@ -310,11 +310,11 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 				strncpy(buff, h->tag, 27);
 				buff[27]=0;
 				if (strcmp(buff, def->tagName)!=0) {
-					httpd_printf("OTA tag mismatch! Current=`%s` uploaded=`%s`.\n",
+					ESP_LOGE(TAG, "OTA tag mismatch! Current=`%s` uploaded=`%s`",
 										def->tagName, buff);
 					len=httpdFindArg(connData->getArgs, "force", buff, sizeof(buff));
 					if (len!=-1 && atoi(buff)) {
-						httpd_printf("Forcing firmware flash.\n");
+						ESP_LOGE(TAG, "Forcing firmware flash");
 					} else {
 						state->err="Firmware not intended for this device!\n";
 						state->state=FLST_ERROR;
@@ -329,13 +329,13 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 					dataLen-=sizeof(OtaHeader); //skip header when parsing data
 					data+=sizeof(OtaHeader);
 					if (system_upgrade_userbin_check()==1) {
-						httpd_printf("Flashing user1.bin from ota image\n");
+						ESP_LOGD(TAG, "Flashing user1.bin from ota image");
 						state->len=h->len1;
 						state->skip=h->len2;
 						state->state=FLST_WRITE;
 						state->address=def->fw1Pos;
 					} else {
-						httpd_printf("Flashing user2.bin from ota image\n");
+						ESP_LOGD(TAG, "Flashing user2.bin from ota image");
 						state->len=h->len2;
 						state->skip=h->len1;
 						state->state=FLST_SKIP;
@@ -363,7 +363,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 			} else {
 				state->err="Invalid flash image type!";
 				state->state=FLST_ERROR;
-				httpd_printf("Did not recognize flash image type!\n");
+				ESP_LOGE(TAG, "Did not recognize flash image type");
 			}
 		} else if (state->state==FLST_SKIP) {
 			//Skip bytes without doing anything with them
@@ -412,7 +412,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 				}
 			}
 		} else if (state->state==FLST_DONE) {
-			httpd_printf("Huh? %d bogus bytes received after data received.\n", dataLen);
+			ESP_LOGE(TAG, "%d bogus bytes received after data received", dataLen);
 			//Ignore those bytes.
 			dataLen=0;
 		} else if (state->state==FLST_ERROR) {
@@ -423,7 +423,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 
 	if (connData->post->len==connData->post->received) {
 		//We're done! Format a response.
-		httpd_printf("Upload done. Sending response.\n");
+		ESP_LOGD(TAG, "Upload done. Sending response");
 		httpdStartResponse(connData, state->state==FLST_ERROR?400:200);
 		httpdHeader(connData, "Content-Type", "text/plain");
 		httpdEndHeaders(connData);

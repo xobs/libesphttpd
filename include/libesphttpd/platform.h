@@ -24,14 +24,6 @@ typedef TimerHandle_t HttpdPlatTimerHandle;
 typedef xTimerHandle HttpdPlatTimerHandle;
 #endif
 
-#ifndef ESP32 //esp32 does not need this because it can map flash into D-port memory
-#define httpd_printf(fmt, ...) do {	\
-	static const char flash_str[] ICACHE_RODATA_ATTR STORE_ATTR = fmt;	\
-	printf(flash_str, ##__VA_ARGS__);	\
-	} while(0)
-#else
-#define httpd_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
-#endif
 #ifdef ESP32
 #define ICACHE_FLASH_ATTR
 #endif
@@ -42,6 +34,7 @@ typedef xTimerHandle HttpdPlatTimerHandle;
 typedef struct RtosConnType RtosConnType;
 typedef RtosConnType* ConnTypePtr;
 
+//FIXME: logging support under linux
 #define httpd_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
 
 #define vTaskDelay(milliseconds) usleep((milliseconds) * 1000)

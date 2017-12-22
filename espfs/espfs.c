@@ -40,6 +40,9 @@ It's written for use with httpd, but doesn't need to be used as such.
 #include "heatshrink_decoder.h"
 #endif
 
+#include "esp_log.h"
+const static char* TAG = "espfs";
+
 // Define to enable more verbose output
 #undef VERBOSE_OUTPUT
 
@@ -113,8 +116,8 @@ EspFsInitResult ICACHE_FLASH_ATTR espFsInit(void *flashAddress) {
 	// check if there is valid header at address
 	EspFsHeader testHeader;
 	readFlashUnaligned((char*)&testHeader, (char*)flashAddress, sizeof(EspFsHeader));
-	printf("Esp magic: %x (should be %x)\n", testHeader.magic, ESPFS_MAGIC);
 	if (testHeader.magic != ESPFS_MAGIC) {
+		ESP_LOGE(TAG, "Esp magic: %x (should be %x)", testHeader.magic, ESPFS_MAGIC);
 		return ESPFS_INIT_RESULT_NO_IMAGE;
 	}
 
@@ -128,7 +131,7 @@ EspFsInitResult ICACHE_FLASH_ATTR espFsInit(void *flashAddress) {
 // Returns flags of opened file.
 int ICACHE_FLASH_ATTR espFsFlags(EspFsFile *fh) {
 	if (fh == NULL) {
-		httpd_printf("File handle not ready\n");
+		ESP_LOGE(TAG, "File handle not ready");
 		return -1;
 	}
 
@@ -140,7 +143,7 @@ int ICACHE_FLASH_ATTR espFsFlags(EspFsFile *fh) {
 //Open a file and return a pointer to the file desc struct.
 EspFsFile ICACHE_FLASH_ATTR *espFsOpen(const char *fileName) {
 	if (espFsData == NULL) {
-		httpd_printf("Call espFsInit first!\n");
+		ESP_LOGE(TAG, "Call espFsInit first");
 		return NULL;
 	}
 	char *p=espFsData;
@@ -158,18 +161,18 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(const char *fileName) {
 		readFlashAligned((uintptr_t*)&h, (uintptr_t)p, sizeof(EspFsHeader));
 
 		if (h.magic!=ESPFS_MAGIC) {
-			httpd_printf("Magic mismatch. EspFS image broken.\n");
+			ESP_LOGE(TAG, "Magic mismatch. EspFS image broken.");
 			return NULL;
 		}
 		if (h.flags&FLAG_LASTFILE) {
-			httpd_printf("End of image.\n");
+			ESP_LOGD(TAG, "End of image");
 			return NULL;
 		}
 		//Grab the name of the file.
 		p+=sizeof(EspFsHeader);
 		readFlashAligned((uint32_t*)&namebuf, (uintptr_t)p, sizeof(namebuf));
 #ifdef VERBOSE_OUTPUT
-		httpd_printf("Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d\n",
+		ESP_LOGD(TAG, "Found file '%s'. Namelen=%x fileLenComp=%x, compr=%d flags=%d",
 				namebuf, (unsigned int)h.nameLen, (unsigned int)h.fileLenComp, h.compression, h.flags);
 #endif
 		if (strcmp(namebuf, fileName)==0) {
@@ -177,7 +180,7 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(const char *fileName) {
 			p+=h.nameLen; //Skip to content.
 			r=(EspFsFile *)malloc(sizeof(EspFsFile)); //Alloc file desc mem
 #ifdef VERBOSE_OUTPUT
-			httpd_printf("Alloc %p\n", r);
+			ESP_LOGD(TAG, "Alloc %p", r);
 #endif
 			if (r==NULL) return NULL;
 			r->header=(EspFsHeader *)hpos;
@@ -195,12 +198,12 @@ EspFsFile ICACHE_FLASH_ATTR *espFsOpen(const char *fileName) {
 				//Decoder params are stored in 1st byte.
 				readFlashUnaligned(&parm, r->posComp, 1);
 				r->posComp++;
-				httpd_printf("Heatshrink compressed file; decode parms = %x\n", parm);
+				ESP_LOGD(TAG, "Heatshrink compressed file; decode parms = %x", parm);
 				dec=heatshrink_decoder_alloc(16, (parm>>4)&0xf, parm&0xf);
 				r->decompData=dec;
 #endif
 			} else {
-				httpd_printf("Invalid compression: %d\n", h.compression);
+				ESP_LOGE(TAG, "Invalid compression: %d", h.compression);
 				free(r);
 				return NULL;
 			}
@@ -228,13 +231,13 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		toRead=flen-(fh->posComp-fh->posStart);
 		if (len>toRead) len=toRead;
 #ifdef VERBOSE_OUTPUT
-		httpd_printf("Reading %d bytes from %x\n", len, (unsigned int)fh->posComp);
+		ESP_LOGD(TAG, "Reading %d bytes from %x", len, (unsigned int)fh->posComp);
 #endif
 		readFlashUnaligned(buff, fh->posComp, len);
 		fh->posDecomp+=len;
 		fh->posComp+=len;
 #ifdef VERBOSE_OUTPUT
-		httpd_printf("Done reading %d bytes, pos=%x\n", len, fh->posComp);
+		ESP_LOGD(TAG, "Done reading %d bytes, pos=%x", len, fh->posComp);
 #endif
 		return len;
 #ifdef ESPFS_HEATSHRINK
@@ -245,7 +248,7 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 		char ebuff[16];
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
 #ifdef VERBOSE_OUTPUT
-		httpd_printf("Alloc %p\n", dec);
+		ESP_LOGD(TAG, "Alloc %p", dec);
 #endif
 		if (fh->posDecomp == fdlen) {
 			return 0;
@@ -271,13 +274,13 @@ int ICACHE_FLASH_ATTR espFsRead(EspFsFile *fh, char *buff, int len) {
 			decoded+=rlen;
 
 #ifdef VERBOSE_OUTPUT
-			httpd_printf("Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
+			ESP_LOGD(TAG, "Elen %d rlen %d d %d pd %ld fdl %d\n",elen,rlen,decoded, fh->posDecomp, fdlen);
 #endif
 
 			if (elen == 0) {
 				if (fh->posDecomp == fdlen) {
 #ifdef VERBOSE_OUTPUT
-					httpd_printf("Decoder finish\n");
+					ESP_LOGD(TAG, "Decoder finish");
 #endif
 					heatshrink_decoder_finish(dec);
 				}
@@ -298,13 +301,13 @@ void ICACHE_FLASH_ATTR espFsClose(EspFsFile *fh) {
 		heatshrink_decoder *dec=(heatshrink_decoder *)fh->decompData;
 		heatshrink_decoder_free(dec);
 #ifdef VERBOSE_OUTPUT
-		httpd_printf("Freed %p\n", dec);
+		ESP_LOGD(TAG, "Freed %p", dec);
 #endif
 	}
 #endif
 
 #ifdef VERBOSE_OUTPUT
-	httpd_printf("Freed %p\n", fh);
+	ESP_LOGD(TAG, "Freed %p", fh);
 #endif
 
 	free(fh);

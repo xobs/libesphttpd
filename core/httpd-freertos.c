@@ -29,6 +29,8 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #include "httpd-platform.h"
 #include "libesphttpd/httpd-freertos.h"
 
+#include "esp_log.h"
+
 #ifdef FREERTOS
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -37,6 +39,9 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #endif
 
 #define fr_of_instance(instance) esp_container_of(instance, HttpdFreertosInstance, httpdInstance)
+
+
+const static char* TAG = "httpd-freertos";
 
 
 int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len) {
@@ -99,15 +104,15 @@ void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 		retval = SSL_shutdown(rconn->ssl);
 		if(retval == 1)
 		{
-			httpd_printf("SSL_shutdown() success\n");
+			ESP_LOGD(TAG, "%s success", "SSL_shutdown()");
 		} else if(retval == 0)
 		{
-			httpd_printf("SSL_shutdown() call again\n");
+			ESP_LOGD(TAG, "%s call again", "SSL_shutdown()");
 		} else
 		{
-			httpd_printf("SSL_shutdown() error %d\n", retval);
+			ESP_LOGE(TAG, "%s %d", "SSL_shutdown()", retval);
 		}
-		httpd_printf("SSL_shutdown() complete\n");
+		ESP_LOGD(TAG, "%s complete", "SSL_shutdown()");
 	}
 #endif
 
@@ -118,7 +123,7 @@ void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 	{
 		SSL_free(rconn->ssl);
-		httpd_printf("SSL_free() complete\n");
+		ESP_LOGD(TAG, "SSL_free() complete");
 		rconn->ssl = 0;
 	}
 #endif
@@ -138,41 +143,40 @@ static SSL_CTX* sslCreateContext()
 	extern const unsigned char prvtkey_der_end[]   asm("_binary_prvtkey_der_end");
 	const unsigned int prvtkey_der_bytes = prvtkey_der_end - prvtkey_der_start;
 
-	httpd_printf("SSL server context create ......\n");
+	ESP_LOGI(TAG, "SSL server context create ......");
 
 	ctx = SSL_CTX_new(TLS_server_method());
 	if (!ctx) {
-		httpd_printf("SSL_CXT_new failed\n");
+		ESP_LOGE(TAG, "SSL_CXT_new");
 		goto failed1;
 	}
-	httpd_printf("OK\n");
+	ESP_LOGI(TAG, "OK");
 
-	httpd_printf("SSL server context setting ca certificate......\n");
+	ESP_LOGI(TAG, "SSL server context setting ca certificate......");
 	ret = SSL_CTX_use_certificate_ASN1(ctx, cacert_der_bytes, cacert_der_start);
 	if (!ret) {
 #ifdef linux
 		ERR_print_errors_fp(stderr);
 #endif
-		httpd_printf("SSL_CTX_use_certificate_ASN1 failed error %d\n", ret);
+		ESP_LOGE(TAG, "SSL_CTX_use_certificate_ASN1 %d", ret);
 		goto failed2;
 	}
-	httpd_printf("OK\n");
+	ESP_LOGI(TAG, "OK");
 
-	httpd_printf("SSL server context setting private key......\n");
+	ESP_LOGI(TAG, "SSL server context setting private key......");
 	ret = SSL_CTX_use_RSAPrivateKey_ASN1(ctx, prvtkey_der_start, prvtkey_der_bytes);
 	if (!ret) {
 #ifdef linux
 		ERR_print_errors_fp(stderr);
 #endif
-		httpd_printf("SSL_CTX_use_RSAPrivateKey_ASN1 failed error %d\n", ret);
+		ESP_LOGE(TAG, "SSL_CTX_use_RSAPrivateKey_ASN1 %d", ret);
 		goto failed2;
 	}
-	httpd_printf("\n");
 
 	return ctx;
 
 failed2:
-	httpd_printf("%s failed\n", __FUNCTION__);
+	ESP_LOGE(TAG, "failed");
 	SSL_CTX_free(ctx);
 	ctx = NULL;
 failed1:
@@ -226,7 +230,7 @@ static void platHttpServerTask(void *pvParameters) {
 		pInstance->ctx = sslCreateContext();
 		if(!pInstance->ctx)
 		{
-			httpd_printf("%s: failed to create ssl context\n", __FUNCTION__);
+			ESP_LOGE(TAG, "create ssl context");
 	#ifdef linux
 			return NULL;
 	#else
@@ -240,7 +244,7 @@ static void platHttpServerTask(void *pvParameters) {
 	do{
 		listenfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (listenfd == -1) {
-			httpd_printf("%s: failed to create sock!\n", __FUNCTION__);
+			ESP_LOGE(TAG, "socket");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(listenfd == -1);
@@ -249,7 +253,7 @@ static void platHttpServerTask(void *pvParameters) {
 	do{
 		ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (ret != 0) {
-			httpd_printf("%s: failed to bind!\n", __FUNCTION__);
+			ESP_LOGE(TAG, "bind");
 			perror("bind failure");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
@@ -259,12 +263,12 @@ static void platHttpServerTask(void *pvParameters) {
 		/* Listen to the local connection */
 		ret = listen(listenfd, HTTPD_MAX_CONNECTIONS);
 		if (ret != 0) {
-			httpd_printf("%s: failed to listen!\n", __FUNCTION__);
+			ESP_LOGE(TAG, "listen");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(ret != 0);
 
-	httpd_printf("esphttpd: active and listening to connections.\n");
+	ESP_LOGI(TAG, "esphttpd: active and listening to connections");
 	while(1){
 		// clear fdset, and set the select function wait time
 		int socketsFull=1;
@@ -280,10 +284,6 @@ static void platHttpServerTask(void *pvParameters) {
 				FD_SET(pRconn->fd, &readset);
 				if (pRconn->needWriteDoneNotif) FD_SET(pRconn->fd, &writeset);
 				if (pRconn->fd>maxfdp) maxfdp = pRconn->fd;
-#if 0
-	//TODO: make this ESP_LOGD() as it is too verbose for normal use
-				printf("Sel add %d (write %d)\n", (int)rconn[x].fd, rconn[x].needWriteDoneNotif);
-#endif
 			} else {
 				socketsFull=0;
 			}
@@ -292,24 +292,24 @@ static void platHttpServerTask(void *pvParameters) {
 		if (!socketsFull) {
 			FD_SET(listenfd, &readset);
 			if (listenfd>maxfdp) maxfdp=listenfd;
-			printf("Sel add listen %d\n", listenfd);
+			ESP_LOGD(TAG, "Sel add listen %d", listenfd);
 		}
 
 		//polling all exist client handle,wait until readable/writable
 		ret = select(maxfdp+1, &readset, &writeset, NULL, NULL);//&timeout
-		printf("sel ret\n");
+		ESP_LOGD(TAG, "select ret");
 		if(ret > 0){
 			//See if we need to accept a new connection
 			if (FD_ISSET(listenfd, &readset)) {
 				len=sizeof(struct sockaddr_in);
 				remotefd = accept(listenfd, (struct sockaddr *)&remote_addr, (socklen_t *)&len);
 				if (remotefd<0) {
-					httpd_printf("%s: Huh? Accept failed.\n", __FUNCTION__);
+					ESP_LOGE(TAG, "accept failed");
 					continue;
 				}
 				for(x=0; x<HTTPD_MAX_CONNECTIONS; x++) if (pInstance->rconn[x].fd==-1) break;
 				if (x==HTTPD_MAX_CONNECTIONS) {
-					httpd_printf("%s: Huh? Got accept with all slots full.\n", __FUNCTION__);
+					ESP_LOGE(TAG, "all slots full");
 					continue;
 				}
 
@@ -332,28 +332,28 @@ static void platHttpServerTask(void *pvParameters) {
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 				if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 				{
-					httpd_printf("SSL server create ......\n");
+					ESP_LOGD(TAG, "SSL server create .....");
 					pRconn->ssl = SSL_new(pInstance->ctx);
 					if (!pRconn->ssl) {
-						httpd_printf("SSL_new failed\n");
+						ESP_LOGE(TAG, "SSL_new");
 						close(remotefd);
 						pRconn->fd = -1;
 						continue;
 					}
-					httpd_printf("OK\n");
+					ESP_LOGD(TAG, "OK");
 
 					SSL_set_fd(pRconn->ssl, pRconn->fd);
 
-					httpd_printf("SSL server accept client ......\n");
+					ESP_LOGD(TAG, "SSL server accept client .....");
 					ret = SSL_accept(pRconn->ssl);
 					if (!ret) {
-						httpd_printf("SSL_accept failed\n");
+						ESP_LOGE(TAG, "SSL_accept");
 						close(remotefd);
 						SSL_free(pRconn->ssl);
 						pRconn->fd = -1;
 						continue;
 					}
-					httpd_printf("OK\n");
+					ESP_LOGD(TAG, "OK");
 				}
 #endif
 
@@ -389,7 +389,7 @@ static void platHttpServerTask(void *pvParameters) {
 				if (FD_ISSET(pRconn->fd, &readset)) {
 					precvbuf=(char*)malloc(RECV_BUF_SIZE);
 					if (precvbuf==NULL) {
-						httpd_printf("%s: memory exhausted!\n", __FUNCTION__);
+						ESP_LOGE(TAG, "memory exhausted");
 						httpdDisconCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
 						closeConnection(pInstance, pRconn);
 					}
@@ -413,7 +413,7 @@ static void platHttpServerTask(void *pvParameters) {
 							if(ret <= 0)
 							{
 								ssl_error = SSL_get_error(pRconn->ssl, ret);
-								httpd_printf("ssl_error %d\n", ssl_error);
+								ESP_LOGE(TAG, "ssl_error %d", ssl_error);
 							}
 
 							if (ret > 0) {
@@ -486,7 +486,7 @@ HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int au
 	int retval = timer_create(CLOCK_MONOTONIC, &event, &(handle->timer));
 	if(retval != 0)
 	{
-		httpd_printf("timer_create() failed retval %d\n", retval);
+		ESP_LOGE(TAG, "timer_create() %d", retval);
 	}
 
 	return handle;
@@ -507,7 +507,7 @@ void httpdPlatTimerStart(HttpdPlatTimerHandle handle) {
 
 	if(retval != 0)
 	{
-		httpd_printf("timer start timer_settime() failed retval %d\n", retval);
+		ESP_LOGE(TAG, "timer_settime() %d", retval);
 	}
 }
 
@@ -521,7 +521,7 @@ void httpdPlatTimerStop(HttpdPlatTimerHandle handle) {
 
 	if(retval != 0)
 	{
-		httpd_printf("timer start timer_settime() failed retval %d\n", retval);
+		ESP_LOGE(TAG, "timer_settime() %d", retval);
 	}
 }
 
@@ -583,7 +583,7 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 #endif
 #endif
 
-	httpd_printf("%s port %d\n", __FUNCTION__, port);
+	ESP_LOGI(TAG, "port %d", port);
 
 	return status;
 }
@@ -594,7 +594,7 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInst
 	HttpdInitStatus status;
 
 	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, flags);
-	httpd_printf("%s init\n", __FUNCTION__);
+	ESP_LOGI(TAG, "init");
 
 	return status;
 }
