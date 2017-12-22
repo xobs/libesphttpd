@@ -143,8 +143,7 @@ static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdCon
 		} while (i!=NULL);
 	}
 #endif
-	if (conn->post->buff!=NULL) free(conn->post->buff);
-	if (conn->post!=NULL) free(conn->post);
+	if (conn->post.buff!=NULL) free(conn->post.buff);
 	if (conn->priv!=NULL) free(conn->priv);
 	if (conn) free(conn);
 	for (int i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
@@ -545,12 +544,12 @@ void ICACHE_FLASH_ATTR httpdCgiIsDone(HttpdInstance *pInstance, HttpdConnData *c
 		httpdFlushSendBuffer(pInstance, conn);
 		//Note: Do not clean up sendBacklog, it may still contain data at this point.
 		conn->priv->headPos=0;
-		conn->post->len=-1;
+		conn->post.len=-1;
 		conn->priv->flags=0;
-		if (conn->post->buff) free(conn->post->buff);
-		conn->post->buff=NULL;
-		conn->post->buffLen=0;
-		conn->post->received=0;
+		if (conn->post.buff) free(conn->post.buff);
+		conn->post.buff=NULL;
+		conn->post.buffLen=0;
+		conn->post.received=0;
 		conn->hostName=NULL;
 	} else {
 		//Cannot re-use this connection. Mark to get it killed after all data is sent.
@@ -769,31 +768,31 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		//Skip trailing spaces
 		while (h[i]==' ') i++;
 		//Get POST data length
-		conn->post->len=atoi(h+i);
+		conn->post.len=atoi(h+i);
 
 		// Allocate the buffer
-		if (conn->post->len > HTTPD_MAX_POST_LEN) {
+		if (conn->post.len > HTTPD_MAX_POST_LEN) {
 			// we'll stream this in in chunks
-			conn->post->buffSize = HTTPD_MAX_POST_LEN;
+			conn->post.buffSize = HTTPD_MAX_POST_LEN;
 		} else {
-			conn->post->buffSize = conn->post->len;
+			conn->post.buffSize = conn->post.len;
 		}
-		ESP_LOGD(TAG, "Mallocced buffer for %d + 1 bytes of post data", conn->post->buffSize);
-		conn->post->buff=(char*)malloc(conn->post->buffSize + 1);
-		if (conn->post->buff==NULL) {
+		ESP_LOGD(TAG, "Mallocced buffer for %d + 1 bytes of post data", conn->post.buffSize);
+		conn->post.buff=(char*)malloc(conn->post.buffSize + 1);
+		if (conn->post.buff==NULL) {
 			ESP_LOGE(TAG, "malloc failed");
 			return;
 		}
-		conn->post->buffLen=0;
+		conn->post.buffLen=0;
 	} else if (strncasecmp(h, "Content-Type: ", 14)==0) {
 		if (strstr(h, "multipart/form-data")) {
 			// It's multipart form data so let's pull out the boundary for future use
 			char *b;
 			if ((b = strstr(h, "boundary=")) != NULL) {
-				conn->post->multipartBoundary = b + 7; // move the pointer 2 chars before boundary then fill them with dashes
-				conn->post->multipartBoundary[0] = '-';
-				conn->post->multipartBoundary[1] = '-';
-				ESP_LOGD(TAG, "boundary = %s", conn->post->multipartBoundary);
+				conn->post.multipartBoundary = b + 7; // move the pointer 2 chars before boundary then fill them with dashes
+				conn->post.multipartBoundary[0] = '-';
+				conn->post.multipartBoundary[1] = '-';
+				ESP_LOGD(TAG, "boundary = %s", conn->post.multipartBoundary);
 			}
 		}
 	}
@@ -853,14 +852,14 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 	conn->priv->corsToken[0] = 0;
 #endif
 
-	//This is slightly evil/dirty: we abuse conn->post->len as a state variable for where in the http communications we are:
+	//This is slightly evil/dirty: we abuse conn->post.len as a state variable for where in the http communications we are:
 	//<0 (-1): Post len unknown because we're still receiving headers
 	//==0: No post data
 	//>0: Need to receive post data
 	//ToDo: See if we can use something more elegant for this.
 
 	for (x=0; x<len; x++) {
-		if (conn->post->len<0) {
+		if (conn->post.len<0) {
 			//This byte is a header byte.
 			if (data[x]=='\n') {
 				//Compatibility with clients that send \n only: fake a \r in front of this.
@@ -874,7 +873,7 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 			//Scan for /r/n/r/n. Receiving this indicate the headers end.
 			if (data[x]=='\n' && (char *)strstr(conn->priv->head, "\r\n\r\n")!=NULL) {
 				//Indicate we're done with the headers.
-				conn->post->len=0;
+				conn->post.len=0;
 				//Reset url data
 				conn->url=NULL;
 				//Iterate over all received headers and parse them.
@@ -887,18 +886,18 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 					p=e+2;						//Skip /r/n (now /0/n)
 				}
 				//If we don't need to receive post data, we can send the response now.
-				if (conn->post->len==0) {
+				if (conn->post.len==0) {
 					httpdProcessRequest(pInstance, conn);
 				}
 			}
-		} else if (conn->post->len!=0) {
+		} else if (conn->post.len!=0) {
 			//This byte is a POST byte.
-			conn->post->buff[conn->post->buffLen++]=data[x];
-			conn->post->received++;
+			conn->post.buff[conn->post.buffLen++]=data[x];
+			conn->post.received++;
 			conn->hostName=NULL;
-			if (conn->post->buffLen >= conn->post->buffSize || conn->post->received == conn->post->len) {
+			if (conn->post.buffLen >= conn->post.buffSize || conn->post.received == conn->post.len) {
 				//Received a chunk of post data
-				conn->post->buff[conn->post->buffLen]=0; //zero-terminate, in case the cgi handler knows it can use strings
+				conn->post.buff[conn->post.buffLen]=0; //zero-terminate, in case the cgi handler knows it can use strings
 				//Process the data
 				if (conn->cgi) {
 					r=conn->cgi(conn);
@@ -910,7 +909,7 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 					//call it the first time.
 					httpdProcessRequest(pInstance, conn);
 				}
-				conn->post->buffLen = 0;
+				conn->post.buffLen = 0;
 			}
 		} else {
 			//Let cgi handle data if it registered a recvHdl callback. If not, ignore.
@@ -973,17 +972,11 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	pConnData->conn=conn;
 	pConnData->slot=i;
 	pConnData->priv->headPos=0;
-	pConnData->post=malloc(sizeof(HttpdPostData));
-	if (pConnData->post==NULL) {
-		ESP_LOGE(TAG, "Out of memory allocating connData post struct");
-		httpdPlatUnlock(pInstance);
-		return 0;
-	}
-	memset(pConnData->post, 0, sizeof(HttpdPostData));
-	pConnData->post->buff=NULL;
-	pConnData->post->buffLen=0;
-	pConnData->post->received=0;
-	pConnData->post->len=-1;
+	memset(&pConnData->post, 0, sizeof(HttpdPostData));
+	pConnData->post.buff=NULL;
+	pConnData->post.buffLen=0;
+	pConnData->post.received=0;
+	pConnData->post.len=-1;
 	pConnData->hostName=NULL;
 	pConnData->remote_port=remPort;
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT

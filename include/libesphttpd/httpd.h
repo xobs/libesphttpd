@@ -64,6 +64,16 @@ typedef struct HttpdInstance HttpdInstance;
 typedef CgiStatus (* cgiSendCallback)(HttpdConnData *connData);
 typedef CgiStatus (* cgiRecvHandler)(HttpdInstance *pInstance, HttpdConnData *connData, char *data, int len);
 
+//A struct describing the POST data sent inside the http connection.  This is used by the CGI functions
+struct HttpdPostData {
+	int len;				// POST Content-Length
+	int buffSize;			// The maximum length of the post buffer
+	int buffLen;			// The amount of bytes in the current post buffer
+	int received;			// The total amount of bytes received so far
+	char *buff;				// Actual POST data buffer
+	char *multipartBoundary; //Text of the multipart boundary, if any
+};
+
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
 	ConnTypePtr conn;		// The TCP connection. Exact type depends on the platform.
@@ -78,20 +88,10 @@ struct HttpdConnData {
 	HttpdPriv *priv;		// Opaque pointer to data for internal httpd housekeeping
 	cgiSendCallback cgi;	// CGI function pointer
 	cgiRecvHandler recvHdl;	// Handler for data received after headers, if any
-	HttpdPostData *post;	// POST data structure
+	HttpdPostData post;	// POST data structure
 	int remote_port;		// Remote TCP port
 	uint8_t remote_ip[4];	// IP address of client
 	uint8_t slot;			// Slot ID
-};
-
-//A struct describing the POST data sent inside the http connection.  This is used by the CGI functions
-struct HttpdPostData {
-	int len;				// POST Content-Length
-	int buffSize;			// The maximum length of the post buffer
-	int buffLen;			// The amount of bytes in the current post buffer
-	int received;			// The total amount of bytes received so far
-	char *buff;				// Actual POST data buffer
-	char *multipartBoundary; //Text of the multipart boundary, if any
 };
 
 //A struct describing an url. This is the main struct that's used to send different URL requests to

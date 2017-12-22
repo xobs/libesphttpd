@@ -176,8 +176,8 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 		connData->cgiData=state;
 	}
 
-	char *data = connData->post->buff;
-	int dataLen = connData->post->buffLen;
+	char *data = connData->post.buff;
+	int dataLen = connData->post.buffLen;
 
 	while (dataLen!=0) {
 		if (state->state==FLST_START) {
@@ -186,7 +186,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 				state->err="Combined flash images are unneeded/unsupported on ESP32!";
 				state->state=FLST_ERROR;
 				ESP_LOGE(TAG, "Combined flash image not supported on ESP32!");
-			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post->buff)) {
+			} else if (def->type==CGIFLASH_TYPE_FW && checkBinHeader(connData->post.buff)) {
 				state->update_partition = esp_ota_get_next_update_partition(NULL);
 				ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
 					state->update_partition->subtype, state->update_partition->address);
@@ -199,13 +199,13 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 				ESP_LOGI(TAG, "esp_ota_begin succeeded");
 
 				state->state = FLST_WRITE;
-				state->len = connData->post->len;
-			} else if (def->type==CGIFLASH_TYPE_ESPFS && checkEspfsHeader(connData->post->buff)) {
-				if (connData->post->len > def->fwSize) {
+				state->len = connData->post.len;
+			} else if (def->type==CGIFLASH_TYPE_ESPFS && checkEspfsHeader(connData->post.buff)) {
+				if (connData->post.len > def->fwSize) {
 					state->err="Firmware image too large";
 					state->state=FLST_ERROR;
 				} else {
-					state->len=connData->post->len;
+					state->len=connData->post.len;
 					state->address=def->fw1Pos;
 					state->state=FLST_WRITE;
 				}
@@ -244,7 +244,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	printf("state->len %d, state->address: %d\n", state->len, state->address);
 #endif
 
-	if (connData->post->len == connData->post->received) {
+	if (connData->post.len == connData->post.received) {
 		//We're done! Format a response.
 		ESP_LOGD(TAG, "Upload done. Sending response");
 		httpdStartResponse(connData, state->state==FLST_ERROR?400:200);
