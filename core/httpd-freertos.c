@@ -52,7 +52,7 @@ int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr co
 #endif
 	bytesWritten = write(conn->fd, buff, len);
 
-	return (bytesWritten >= 0);
+	return bytesWritten;
 }
 
 void ICACHE_FLASH_ATTR httpdPlatDisconnect(ConnTypePtr conn) {

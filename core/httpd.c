@@ -497,8 +497,8 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 		conn->priv->sendBuffLen+=5;
 	}
 	if (conn->priv->sendBuffLen!=0) {
-		r=httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBuff, conn->priv->sendBuffLen);
-		if (!r) {
+		r = httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBuff, conn->priv->sendBuffLen);
+		if (r != conn->priv->sendBuffLen) {
 			//Can't send this for some reason. Dump packet in backlog, we can send it later.
 			if (conn->priv->sendBacklogSize+conn->priv->sendBuffLen>HTTPD_MAX_BACKLOG_SIZE) {
 				httpd_printf("Httpd: Backlog: Exceeded max backlog size, dropped %d bytes instead of sending them.\n", conn->priv->sendBuffLen);
@@ -566,7 +566,11 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 	if (conn->priv->sendBacklog!=NULL) {
 		//We have some backlog to send first.
 		HttpSendBacklogItem *next=conn->priv->sendBacklog->next;
-		httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBacklog->data, conn->priv->sendBacklog->len);
+		int bytesWritten = httpdPlatSendData(pInstance, conn->conn, conn->priv->sendBacklog->data, conn->priv->sendBacklog->len);
+		if(bytesWritten != conn->priv->sendBacklog->len)
+		{
+			httpd_printf("ERROR: tried to write %d bytes, wrote %d\n", conn->priv->sendBacklog->len, bytesWritten);
+		}
 		conn->priv->sendBacklogSize-=conn->priv->sendBacklog->len;
 		free(conn->priv->sendBacklog);
 		conn->priv->sendBacklog=next;

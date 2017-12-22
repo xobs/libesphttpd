@@ -3,7 +3,11 @@
 
 #include "libesphttpd/platform.h"
 
+/**
+ * @return number of bytes that were written
+ */
 int httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len);
+
 void httpdPlatDisconnect(ConnTypePtr conn);
 void httpdPlatDisableTimeout(ConnTypePtr conn);
 
