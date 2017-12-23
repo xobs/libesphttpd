@@ -197,7 +197,6 @@ static void platHttpServerTask(void *pvParameters) {
 	int maxfdp = 0;
 	fd_set readset,writeset;
 	struct sockaddr name;
-	//struct timeval timeout;
 	struct sockaddr_in server_addr;
 	struct sockaddr_in remote_addr;
 
@@ -273,8 +272,6 @@ static void platHttpServerTask(void *pvParameters) {
 		maxfdp = 0;
 		FD_ZERO(&readset);
 		FD_ZERO(&writeset);
-		//timeout.tv_sec = 2;
-		//timeout.tv_usec = 0;
 
 		for(x=0; x<HTTPD_MAX_CONNECTIONS; x++){
 			RtosConnType *pRconn = &(pInstance->rconn[x]);
