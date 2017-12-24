@@ -212,6 +212,34 @@ static void platHttpServerTask(void *pvParameters) {
 		pInstance->rconn[x].fd=-1;
 	}
 
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+	static int currentUdpShutdownPort = 8000;
+
+	struct sockaddr_in udp_addr;
+	memset(&udp_addr, 0, sizeof(udp_addr)); /* Zero out structure */
+	udp_addr.sin_family = AF_INET;			/* Internet address family */
+	udp_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+	udp_addr.sin_len = sizeof(udp_addr);
+#endif
+
+	// FIXME: use and increment of currentUdpShutdownPort is not thread-safe
+	// and should use a mutex
+	pInstance->udpShutdownPort = currentUdpShutdownPort;
+	currentUdpShutdownPort++;
+	udp_addr.sin_port = htons(pInstance->udpShutdownPort);
+
+	int udpListenfd = socket(AF_INET, SOCK_DGRAM, 0);
+	ESP_LOGI(TAG, "udpListenfd %d", udpListenfd);
+	ret = bind(udpListenfd, (struct sockaddr *)&udp_addr, sizeof(udp_addr));
+	if(ret != 0)
+	{
+		ESP_LOGE(TAG, "udp bind failure");
+		return;
+	}
+	ESP_LOGI(TAG, "shutdown bound to udp port %d", pInstance->udpShutdownPort);
+#endif
+
 	/* Construct local address structure */
 	memset(&server_addr, 0, sizeof(server_addr)); /* Zero out structure */
 	server_addr.sin_family = AF_INET;			/* Internet address family */
@@ -266,7 +294,8 @@ static void platHttpServerTask(void *pvParameters) {
 	} while(ret != 0);
 
 	ESP_LOGI(TAG, "esphttpd: active and listening to connections");
-	while(1){
+	bool shutdown = false;
+	while(!shutdown){
 		// clear fdset, and set the select function wait time
 		int socketsFull=1;
 		maxfdp = 0;
@@ -290,10 +319,22 @@ static void platHttpServerTask(void *pvParameters) {
 			ESP_LOGD(TAG, "Sel add listen %d", listenfd);
 		}
 
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+		FD_SET(udpListenfd, &readset);
+		if(udpListenfd > maxfdp) maxfdp = udpListenfd;
+#endif
+
 		//polling all exist client handle,wait until readable/writable
 		ret = select(maxfdp+1, &readset, &writeset, NULL, NULL);//&timeout
 		ESP_LOGD(TAG, "select ret");
 		if(ret > 0){
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+			if (FD_ISSET(udpListenfd, &readset)) {
+				shutdown = true;
+				ESP_LOGI(TAG, "shutting down");
+			}
+#endif
+
 			//See if we need to accept a new connection
 			if (FD_ISSET(listenfd, &readset)) {
 				len=sizeof(struct sockaddr_in);
@@ -432,9 +473,39 @@ static void platHttpServerTask(void *pvParameters) {
 			}
 		}
 	}
+
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+	close(listenfd);
+	close(udpListenfd);
+
+	// close all open connections
+	for(x=0; x < HTTPD_MAX_CONNECTIONS; x++)
+	{
+		RtosConnType *pRconn = &(pInstance->rconn[x]);
+
+		if(pRconn->fd != -1)
+		{
+			//recv error,connection close
+			closeConnection(pInstance, pRconn);
+		}
+	}
+
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
+    {
+        SSL_CTX_free(pInstance->ctx);
+    }
+#endif
+
+	ESP_LOGI(TAG, "exiting");
+	pInstance->isShutdown = true;
+
 #ifdef linux
 	return NULL;
+#else
+	vTaskDelete(NULL);
 #endif
+#endif /* #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT */
 }
 
 #ifdef linux
@@ -558,6 +629,7 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 	pInstance->httpMaxConnCt = HTTPD_MAX_CONNECTIONS;
 	pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
 	pInstance->httpdFlags = flags;
+	pInstance->isShutdown = false;
 
 #ifdef linux
 	pthread_t thread;
@@ -585,5 +657,48 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInst
 
 	return status;
 }
+
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+void httpdPlatShutdown(HttpdInstance *pInstance)
+{
+	int err;
+	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+
+	int s = socket(AF_INET, SOCK_DGRAM, 0);
+	if(s <= 0)
+	{
+		ESP_LOGE(TAG, "socket %d", s);
+	}
+
+	struct sockaddr_in udp_addr;
+	memset(&udp_addr, 0, sizeof(udp_addr)); /* Zero out structure */
+	udp_addr.sin_family = AF_INET;			/* Internet address family */
+	udp_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifndef linux
+	udp_addr.sin_len = sizeof(udp_addr);
+#endif
+	udp_addr.sin_port = htons(pFR->udpShutdownPort);
+
+	while(!pFR->isShutdown)
+	{
+		ESP_LOGI(TAG, "sending shutdown to port %d", pFR->udpShutdownPort);
+
+	    err = sendto(s, pFR, sizeof(pFR), 0,
+				(struct sockaddr*)&udp_addr, sizeof(udp_addr));
+		if(err != sizeof(pFR))
+		{
+			ESP_LOGE(TAG, "sendto");
+			perror("sendto");
+		}
+
+		if(!pFR->isShutdown)
+		{
+			vTaskDelay(200 / portTICK_PERIOD_MS);
+		}
+	}
+
+	close(s);
+}
+#endif
 
 #endif

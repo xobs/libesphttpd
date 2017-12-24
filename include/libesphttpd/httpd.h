@@ -180,4 +180,8 @@ int httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int 
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+void httpdShutdown(HttpdInstance *pInstance);
+#endif
+
 #endif

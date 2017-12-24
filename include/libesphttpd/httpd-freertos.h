@@ -43,6 +43,12 @@ typedef struct
     struct sockaddr_in httpListenAddress;
     HttpdFlags httpdFlags;
 
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+	int udpShutdownPort;
+#endif
+
+	bool isShutdown;
+
 	// storage for data read in the main loop
 	char precvbuf[RECV_BUF_SIZE];
 

@@ -960,3 +960,10 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	httpdPlatUnlock(pInstance);
 	return 1;
 }
+
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+void httpdShutdown(HttpdInstance *pInstance)
+{
+	httpdPlatShutdown(pInstance);
+}
+#endif

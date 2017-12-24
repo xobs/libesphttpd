@@ -19,5 +19,8 @@ void httpdPlatTimerStart(HttpdPlatTimerHandle timer);
 void httpdPlatTimerStop(HttpdPlatTimerHandle timer);
 void httpdPlatTimerDelete(HttpdPlatTimerHandle timer);
 
+#ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
+void httpdPlatShutdown(HttpdInstance *pInstance);
+#endif
 
 #endif

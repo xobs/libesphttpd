@@ -21,6 +21,13 @@ config ESPHTTPD_STACK_SIZE
 	help
 		Stack size reserved for the esp-httpd main task plus CGIs.
 
+config ESPHTTPD_SHUTDOWN_SUPPORT
+	bool "Enable shutdown support"
+	depends on ESPHTTPD_ENABLED
+	default n
+	help
+		Add support for server shutdown. Adds ~500 bytes of code.
+
 config ESPHTTPD_CORS_SUPPORT
     bool "CORS support"
         depends on ESPHTTPD_ENABLED
