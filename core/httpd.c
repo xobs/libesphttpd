@@ -90,7 +90,7 @@ void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime)
 
 //Looks up the connData info for a specific connection
 static HttpdConnData ICACHE_FLASH_ATTR *httpdFindConnData(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort) {
-	for (int i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
+	for (int i=0; i < pInstance->maxConnections; i++) {
 		HttpdConnData *pConnData = pInstance->connData[i];
 		if (pConnData && pConnData->remote_port == remPort &&
 						memcmp(pConnData->remote_ip, remIp, 4) == 0) {
@@ -119,7 +119,7 @@ static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdCon
 #endif
 	if (conn->post.buff!=NULL) free(conn->post.buff);
 	if (conn) free(conn);
-	for (int i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
+	for (int i=0; i < pInstance->maxConnections; i++) {
 		if (pInstance->connData[i]==conn) pInstance->connData[i]=NULL;
 	}
 }
@@ -925,9 +925,9 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	int i;
 	httpdPlatLock(pInstance);
 	//Find empty conndata in pool
-	for (i=0; i<HTTPD_MAX_CONNECTIONS; i++) if (pInstance->connData[i]==NULL) break;
+	for (i=0; i < pInstance->maxConnections; i++) if (pInstance->connData[i]==NULL) break;
 	ESP_LOGD(TAG, "Conn req from  %d.%d.%d.%d:%d, using pool slot %d", remIp[0]&0xff, remIp[1]&0xff, remIp[2]&0xff, remIp[3]&0xff, remPort, i);
-	if (i==HTTPD_MAX_CONNECTIONS) {
+	if (i==pInstance->maxConnections) {
 		ESP_LOGE(TAG, "conn pool overflow");
 		httpdPlatUnlock(pInstance);
 		return 0;

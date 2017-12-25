@@ -202,13 +202,15 @@ static void platHttpServerTask(void *pvParameters) {
 
 	HttpdFreertosInstance *pInstance = (HttpdFreertosInstance*)pvParameters;
 
+	int maxConnections = pInstance->httpdInstance.maxConnections;
+
 #ifdef linux
 	pthread_mutex_init(&pInstance->httpdMux, NULL);
 #else
 	pInstance->httpdMux = xSemaphoreCreateRecursiveMutex();
 #endif
 
-	for (x=0; x<HTTPD_MAX_CONNECTIONS; x++) {
+	for (x=0; x < maxConnections; x++) {
 		pInstance->rconn[x].fd=-1;
 	}
 
@@ -286,7 +288,7 @@ static void platHttpServerTask(void *pvParameters) {
 
 	do{
 		/* Listen to the local connection */
-		ret = listen(listenfd, HTTPD_MAX_CONNECTIONS);
+		ret = listen(listenfd, maxConnections);
 		if (ret != 0) {
 			ESP_LOGE(TAG, "listen");
 			vTaskDelay(1000/portTICK_RATE_MS);
@@ -302,7 +304,7 @@ static void platHttpServerTask(void *pvParameters) {
 		FD_ZERO(&readset);
 		FD_ZERO(&writeset);
 
-		for(x=0; x<HTTPD_MAX_CONNECTIONS; x++){
+		for(x=0; x < maxConnections; x++){
 			RtosConnType *pRconn = &(pInstance->rconn[x]);
 			if (pRconn->fd!=-1) {
 				FD_SET(pRconn->fd, &readset);
@@ -343,8 +345,8 @@ static void platHttpServerTask(void *pvParameters) {
 					ESP_LOGE(TAG, "accept failed");
 					continue;
 				}
-				for(x=0; x<HTTPD_MAX_CONNECTIONS; x++) if (pInstance->rconn[x].fd==-1) break;
-				if (x==HTTPD_MAX_CONNECTIONS) {
+				for(x=0; x < maxConnections; x++) if (pInstance->rconn[x].fd==-1) break;
+				if (x == maxConnections) {
 					ESP_LOGE(TAG, "all slots full");
 					continue;
 				}
@@ -404,7 +406,7 @@ static void platHttpServerTask(void *pvParameters) {
 			}
 
 			//See if anything happened on the existing connections.
-			for(x=0; x < HTTPD_MAX_CONNECTIONS; x++){
+			for(x=0; x < maxConnections; x++) {
 				RtosConnType *pRconn = &(pInstance->rconn[x]);
 
 				//Skip empty slots
@@ -479,7 +481,7 @@ static void platHttpServerTask(void *pvParameters) {
 	close(udpListenfd);
 
 	// close all open connections
-	for(x=0; x < HTTPD_MAX_CONNECTIONS; x++)
+	for(x=0; x < maxConnections; x++)
 	{
 		RtosConnType *pRconn = &(pInstance->rconn[x]);
 
@@ -614,35 +616,41 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 //Httpd initialization routine. Call this to kick off webserver functionality.
 HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
 				const HttpdBuiltInUrl *fixedUrls, int port,
-				uint32_t listenAddress, HttpdFlags flags)
+				uint32_t listenAddress, int maxConnections, HttpdFlags flags)
 {
 	int i;
 	HttpdInitStatus status;
 
-	for (i=0; i<HTTPD_MAX_CONNECTIONS; i++) {
-		pInstance->httpdInstance.connData[i]=NULL;
+	if(maxConnections > HTTPD_MAX_CONNECTIONS)
+	{
+		status = ErrorTooManyConnections;
+	} else
+	{
+		for (i=0; i<maxConnections; i++) {
+			pInstance->httpdInstance.connData[i]=NULL;
+		}
+		pInstance->httpdInstance.builtInUrls=fixedUrls;
+		pInstance->httpdInstance.maxConnections = maxConnections;
+
+		status = InitializationSuccess;
+		pInstance->httpPort = port;
+		pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
+		pInstance->httpdFlags = flags;
+		pInstance->isShutdown = false;
+
+	#ifdef linux
+		pthread_t thread;
+		pthread_create(&thread, NULL, platHttpServerTask, pInstance);
+	#else
+	#ifdef ESP32
+		xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
+	#else
+		xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
+	#endif
+	#endif
+
+		ESP_LOGI(TAG, "port %d", port);
 	}
-	pInstance->httpdInstance.builtInUrls=fixedUrls;
-
-	status = InitializationSuccess;
-	pInstance->httpPort = port;
-	pInstance->httpMaxConnCt = HTTPD_MAX_CONNECTIONS;
-	pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
-	pInstance->httpdFlags = flags;
-	pInstance->isShutdown = false;
-
-#ifdef linux
-	pthread_t thread;
-	pthread_create(&thread, NULL, platHttpServerTask, pInstance);
-#else
-#ifdef ESP32
-	xTaskCreate(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
-#else
-	xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
-#endif
-#endif
-
-	ESP_LOGI(TAG, "port %d", port);
 
 	return status;
 }
@@ -652,7 +660,7 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInst
 {
 	HttpdInitStatus status;
 
-	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, flags);
+	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, HTTPD_MAX_CONNECTIONS, flags);
 	ESP_LOGI(TAG, "init");
 
 	return status;

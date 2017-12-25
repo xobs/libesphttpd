@@ -9,9 +9,10 @@ config ESPHTTPD_MAX_CONNECTIONS
 	int "Maximum amount of connections"
         depends on ESPHTTPD_ENABLED
 	range 1 LWIP_MAX_SOCKETS
-	default 4
+	default 6
 	help
 		Amount of concurrent connections esp-httpd can sustain. Cannot be more than the amount of sockets lwip supports.
+		NOTE: Httpd instances can be limited to fewer connections with the HttpdxxxxEx() server creation functions.
 
 config ESPHTTPD_STACK_SIZE
 	int "Stack size of ESP-HTTPD task"

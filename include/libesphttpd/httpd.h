@@ -143,13 +143,18 @@ typedef enum
 
 typedef enum
 {
-	InitializationSuccess
+	InitializationSuccess,
+
+	/* More connections requested than HTTPD_MAX_CONNECTIONS */
+	ErrorTooManyConnections,
 } HttpdInitStatus;
 
 /** Common elements to the core server code */
 typedef struct HttpdInstance
 {
 	const HttpdBuiltInUrl *builtInUrls;
+
+	int maxConnections;
 
 	//Connection pool
 	HttpdConnData *connData[HTTPD_MAX_CONNECTIONS];
