@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "esp.h"
+
 #define HTTPDVER "0.5"
 
 //Max length of request head. This is statically allocated for each connection.
