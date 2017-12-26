@@ -185,10 +185,19 @@ failed1:
 #endif
 
 #ifdef linux
-static void* platHttpServerTask(void *pvParameters) {
+
+#define PLAT_RETURN void*
+#define PLAT_TASK_EXIT return NULL
+
 #else
-static void platHttpServerTask(void *pvParameters) {
+
+#define PLAT_RETURN void
+#define PLAT_TASK_EXIT vTaskDelete(NULL)
+
 #endif
+
+
+static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 	int32 listenfd;
 	int32 remotefd;
 	int32 len;
@@ -260,11 +269,7 @@ static void platHttpServerTask(void *pvParameters) {
 		if(!pInstance->ctx)
 		{
 			ESP_LOGE(TAG, "create ssl context");
-	#ifdef linux
-			return NULL;
-	#else
-			vTaskDelete(NULL);
-	#endif
+			PLAT_TASK_EXIT;
 		}
 	}
 #endif
@@ -504,11 +509,7 @@ static void platHttpServerTask(void *pvParameters) {
 	ESP_LOGI(TAG, "exiting");
 	pInstance->isShutdown = true;
 
-#ifdef linux
-	return NULL;
-#else
-	vTaskDelete(NULL);
-#endif
+	PLAT_TASK_EXIT;
 #endif /* #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT */
 }
 
