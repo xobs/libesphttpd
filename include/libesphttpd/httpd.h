@@ -5,6 +5,15 @@
 
 #include "esp.h"
 
+/**
+ * Design notes:
+ *  - The platform code owns the memory management of connections
+ *  - The platform embeds a HttpdConnData into its own structure, this enables
+ *    the platform code, through the use of the container_of approach, to
+ *    find its connection structure when given a HttpdConnData*
+ */
+
+
 #define HTTPDVER "0.5"
 
 //Max length of request head. This is statically allocated for each connection.
@@ -83,7 +92,11 @@ struct HttpdPriv {
 	int headPos;
 	char *sendBuff;
 	int sendBuffLen;
+
+	/** NOTE: chunkHdr, if valid, points at memory assigned to sendBuff
+		so it doesn't have to be freed */
 	char *chunkHdr;
+
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	HttpSendBacklogItem *sendBacklog;
 	int sendBacklogSize;
@@ -103,7 +116,6 @@ struct HttpdPostData {
 
 //A struct describing a http connection. This gets passed to cgi functions.
 struct HttpdConnData {
-	ConnTypePtr conn;		// The TCP connection. Exact type depends on the platform.
 	RequestTypes requestType;
 	char *url;				// The URL requested, without hostname or GET arguments
 	char *getArgs;			// The GET arguments for this request, if any.
@@ -116,9 +128,7 @@ struct HttpdConnData {
 	cgiSendCallback cgi;	// CGI function pointer
 	cgiRecvHandler recvHdl;	// Handler for data received after headers, if any
 	HttpdPostData post;	// POST data structure
-	int remote_port;		// Remote TCP port
-	uint8_t remote_ip[4];	// IP address of client
-	uint8_t slot;			// Slot ID
+	bool isConnectionClosed;
 };
 
 //A struct describing an url. This is the main struct that's used to send different URL requests to
@@ -154,9 +164,6 @@ typedef struct HttpdInstance
 	const HttpdBuiltInUrl *builtInUrls;
 
 	int maxConnections;
-
-	//Connection pool
-	HttpdConnData *connData[HTTPD_MAX_CONNECTIONS];
 } HttpdInstance;
 
 typedef enum
@@ -165,7 +172,6 @@ typedef enum
 	CallbackErrorOutOfConnections,
 	CallbackErrorCannotFindConnection,
 	CallbackErrorMemory,
-	CallbackErrorNullConnection,
 	CallbackError
 } CallbackStatus;
 
@@ -185,10 +191,12 @@ void httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime);
 
 //Platform dependent code should call these.
-CallbackStatus httpdSentCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
-CallbackStatus httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort, char *data, unsigned short len);
-CallbackStatus httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
-CallbackStatus httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+CallbackStatus httpdSentCb(HttpdInstance *pInstance, HttpdConnData *pConn);
+CallbackStatus httpdRecvCb(HttpdInstance *pInstance, HttpdConnData *pConn, char *data, unsigned short len);
+CallbackStatus httpdDisconCb(HttpdInstance *pInstance, HttpdConnData *pConn);
+
+/** NOTE: httpdConnectCb() cannot fail */
+void httpdConnectCb(HttpdInstance *pInstance, HttpdConnData *pConn);
 
 #define esp_container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \

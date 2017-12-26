@@ -39,33 +39,36 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #endif
 
 #define fr_of_instance(instance) esp_container_of(instance, HttpdFreertosInstance, httpdInstance)
+#define frconn_of_conn(conn) esp_container_of(conn, RtosConnType, connData)
 
 
 const static char* TAG = "httpd-freertos";
 
 
-int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len) {
+int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, HttpdConnData *pConn, char *buff, int len) {
 	int bytesWritten;
 	HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
-	conn->needWriteDoneNotif=1;
+	RtosConnType *pRconn = frconn_of_conn(pConn);
+	pRconn->needWriteDoneNotif=1;
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 	if(pFR->httpdFlags & HTTPD_FLAG_SSL)
 	{
-		bytesWritten = SSL_write(conn->ssl, buff, len);
+		bytesWritten = SSL_write(pRconn->ssl, buff, len);
 	} else
 #endif
-	bytesWritten = write(conn->fd, buff, len);
+	bytesWritten = write(pRconn->fd, buff, len);
 
 	return bytesWritten;
 }
 
-void ICACHE_FLASH_ATTR httpdPlatDisconnect(ConnTypePtr conn) {
-	conn->needsClose=1;
-	conn->needWriteDoneNotif=1; //because the real close is done in the writable select code
+void ICACHE_FLASH_ATTR httpdPlatDisconnect(HttpdConnData *pConn) {
+	RtosConnType *pRconn = frconn_of_conn(pConn);
+	pRconn->needsClose=1;
+	pRconn->needWriteDoneNotif=1; //because the real close is done in the writable select code
 }
 
-void httpdPlatDisableTimeout(ConnTypePtr conn) {
+void httpdPlatDisableTimeout(HttpdConnData *pConn) {
 	//Unimplemented for FreeRTOS
 }
 
@@ -95,10 +98,7 @@ void ICACHE_FLASH_ATTR httpdPlatUnlock(HttpdInstance *pInstance) {
 
 void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 {
-	// NOTE: we intentionally ignore the return value here because we could be
-	// using closeConnection() if httpdConnectCb() failed and in that case
-	// it wouldn't be a surprise if some internal elements were invalid
-	httpdDisconCb(&pInstance->httpdInstance, rconn, rconn->ip, rconn->port);
+	httpdDisconCb(&pInstance->httpdInstance, &rconn->connData);
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
@@ -357,7 +357,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 				}
 				for(x=0; x < maxConnections; x++) if (pInstance->rconn[x].fd==-1) break;
 				if (x == maxConnections) {
-					ESP_LOGE(TAG, "all slots full");
+					ESP_LOGE(TAG, "all connections in use");
 					continue;
 				}
 
@@ -413,11 +413,8 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 				pRconn->port = piname->sin_port;
 				memcpy(&pRconn->ip, &piname->sin_addr.s_addr, sizeof(pRconn->ip));
 
-				// attempt to connect, close connection upon failure
-				if(httpdConnectCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port) != CallbackSuccess)
-				{
-					closeConnection(pInstance, pRconn);
-				}
+				// NOTE: httpdConnectCb cannot fail
+				httpdConnectCb(&pInstance->httpdInstance, &pRconn->connData);
 			}
 
 			//See if anything happened on the existing connections.
@@ -435,7 +432,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 						//Do callback and close fd.
 						closeConnection(pInstance, pRconn);
 					} else {
-						if(httpdSentCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port) != CallbackSuccess)
+						if(httpdSentCb(&pInstance->httpdInstance, &pRconn->connData) != CallbackSuccess)
 						{
 							closeConnection(pInstance, pRconn);
 						}
@@ -467,7 +464,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 							if (ret > 0) {
 								//Data received. Pass to httpd.
-								if(httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret) != CallbackSuccess)
+								if(httpdRecvCb(&pInstance->httpdInstance, &pRconn->connData, &pInstance->precvbuf[0], ret) != CallbackSuccess)
 								{
 									closeConnection(pInstance, pRconn);
 								}
@@ -483,7 +480,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 						if (ret > 0) {
 							//Data received. Pass to httpd.
-							if(httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret) != CallbackSuccess)
+							if(httpdRecvCb(&pInstance->httpdInstance, &pRconn->connData, &pInstance->precvbuf[0], ret) != CallbackSuccess)
 							{
 								closeConnection(pInstance, pRconn);
 							}
@@ -637,7 +634,6 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 				const HttpdBuiltInUrl *fixedUrls, int port,
 				uint32_t listenAddress, int maxConnections, HttpdFlags flags)
 {
-	int i;
 	HttpdInitStatus status;
 
 	if(maxConnections > HTTPD_MAX_CONNECTIONS)
@@ -645,9 +641,6 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 		status = ErrorTooManyConnections;
 	} else
 	{
-		for (i=0; i<maxConnections; i++) {
-			pInstance->httpdInstance.connData[i]=NULL;
-		}
 		pInstance->httpdInstance.builtInUrls=fixedUrls;
 		pInstance->httpdInstance.maxConnections = maxConnections;
 

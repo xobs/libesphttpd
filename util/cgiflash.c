@@ -54,7 +54,7 @@ static int ICACHE_FLASH_ATTR checkEspfsHeader(void *buf) {
 
 // Cgi to query which firmware needs to be uploaded next
 CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}
@@ -135,7 +135,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	UploadState *state=(UploadState *)connData->cgiData;
 	esp_err_t err;
 
-	if (connData->conn == NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		if (state!=NULL) free(state);
 		return HTTPD_CGI_DONE;
@@ -278,7 +278,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
 	int len;
 	char buff[128];
 
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		if (state!=NULL) free(state);
 		return HTTPD_CGI_DONE;
@@ -453,7 +453,7 @@ static void ICACHE_FLASH_ATTR resetTimerCb(void *arg) {
 
 // Handle request to reboot into the new firmware
 CgiStatus ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}

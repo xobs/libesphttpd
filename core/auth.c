@@ -23,8 +23,10 @@ CgiStatus ICACHE_FLASH_ATTR authBasic(HttpdConnData *connData) {
 	char userpass[AUTH_MAX_USER_LEN+AUTH_MAX_PASS_LEN+2];
 	char user[AUTH_MAX_USER_LEN];
 	char pass[AUTH_MAX_PASS_LEN];
-	if (connData->conn==NULL) {
-		//Connection aborted. Clean up.
+
+	if(connData->isConnectionClosed)
+	{
+		//Connection closed. Clean up.
 		return HTTPD_CGI_DONE;
 	}
 

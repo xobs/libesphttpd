@@ -149,9 +149,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiGreetUser(HttpdConnData *connData) {
 	char output[256];	//Temporary buffer for HTML output
 	
 	//If the browser unexpectedly closes the connection, the CGI will be called 
-	//with connData->conn=NULL. We can use this to clean up any data. It's not really
+	//after the isConnectionClosed flag is set. We can use this to clean up any data. It's not
 	//used in this simple CGI function.
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}
@@ -232,9 +232,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiSendLongString(HttpdConnData *connData) {
 	int len;
 	
 	//If the browser unexpectedly closes the connection, the CGI will be called 
-	//with connData->conn=NULL. We can use this to clean up any data. It's pretty relevant
+	//after isConnectionClosed is set to true. We can use this to clean up any data. It's pretty relevant
 	//here because otherwise we may leak memory when the browser aborts the connection.
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		if (state!=NULL) free(state);
 		return HTTPD_CGI_DONE;

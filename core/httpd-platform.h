@@ -6,10 +6,10 @@
 /**
  * @return number of bytes that were written
  */
-int httpdPlatSendData(HttpdInstance *pInstance, ConnTypePtr conn, char *buff, int len);
+int httpdPlatSendData(HttpdInstance *pInstance, HttpdConnData *pConn, char *buff, int len);
 
-void httpdPlatDisconnect(ConnTypePtr conn);
-void httpdPlatDisableTimeout(ConnTypePtr conn);
+void httpdPlatDisconnect(HttpdConnData *ponn);
+void httpdPlatDisableTimeout(HttpdConnData *pConn);
 
 void httpdPlatLock(HttpdInstance *pInstance);
 void httpdPlatUnlock(HttpdInstance *pInstance);

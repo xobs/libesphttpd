@@ -8,7 +8,7 @@ const static char* TAG = "cgiredirect";
 
 //Use this as a cgi function to redirect one url to another.
 CgiStatus ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}
@@ -26,7 +26,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 	char *buff;
 	int isIP=0;
 	int x;
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		return HTTPD_CGI_DONE;
 	}

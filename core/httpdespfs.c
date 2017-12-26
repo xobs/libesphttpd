@@ -81,8 +81,8 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 	char acceptEncodingBuffer[64+1];
 	int isGzip;
 
-	if (connData->conn==NULL) {
-		//Connection aborted. Clean up.
+	if (connData->isConnectionClosed) {
+		//Connection closed. Clean up.
 		espFsClose(file);
 		return HTTPD_CGI_DONE;
 	}
@@ -201,7 +201,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	char *e=NULL;
 	int tokOfs;
 
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		((TplCallback)(connData->cgiArg))(connData, NULL, &tpd->tplArg);
 		espFsClose(tpd->file);

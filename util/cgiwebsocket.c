@@ -288,7 +288,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiWebsocket(HttpdConnData *connData) {
 	char buff[256];
 	int i;
 	sha1nfo s;
-	if (connData->conn==NULL) {
+	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		ESP_LOGD(TAG, "Cleanup");
 		if (connData->cgiData) {

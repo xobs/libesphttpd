@@ -30,6 +30,9 @@ struct RtosConnType{
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 	SSL *ssl;
 #endif
+
+	// server connection data structure
+	HttpdConnData connData;
 };
 
 #define RECV_BUF_SIZE 2048
