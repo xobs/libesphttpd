@@ -95,6 +95,9 @@ void ICACHE_FLASH_ATTR httpdPlatUnlock(HttpdInstance *pInstance) {
 
 void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 {
+	// NOTE: we intentionally ignore the return value here because we could be
+	// using closeConnection() if httpdConnectCb() failed and in that case
+	// it wouldn't be a surprise if some internal elements were invalid
 	httpdDisconCb(&pInstance->httpdInstance, rconn, rconn->ip, rconn->port);
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
@@ -410,7 +413,11 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 				pRconn->port = piname->sin_port;
 				memcpy(&pRconn->ip, &piname->sin_addr.s_addr, sizeof(pRconn->ip));
 
-				httpdConnectCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
+				// attempt to connect, close connection upon failure
+				if(httpdConnectCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port) != CallbackSuccess)
+				{
+					closeConnection(pInstance, pRconn);
+				}
 			}
 
 			//See if anything happened on the existing connections.
@@ -428,7 +435,10 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 						//Do callback and close fd.
 						closeConnection(pInstance, pRconn);
 					} else {
-						httpdSentCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port);
+						if(httpdSentCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port) != CallbackSuccess)
+						{
+							closeConnection(pInstance, pRconn);
+						}
 					}
 				}
 
@@ -457,7 +467,10 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 							if (ret > 0) {
 								//Data received. Pass to httpd.
-								httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret);
+								if(httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret) != CallbackSuccess)
+								{
+									closeConnection(pInstance, pRconn);
+								}
 							} else {
 								//recv error,connection close
 								closeConnection(pInstance, pRconn);
@@ -470,7 +483,10 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 						if (ret > 0) {
 							//Data received. Pass to httpd.
-							httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret);
+							if(httpdRecvCb(&pInstance->httpdInstance, pRconn, pRconn->ip, pRconn->port, &pInstance->precvbuf[0], ret) != CallbackSuccess)
+							{
+								closeConnection(pInstance, pRconn);
+							}
 						} else {
 							//recv error,connection close
 							closeConnection(pInstance, pRconn);

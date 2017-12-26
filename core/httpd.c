@@ -452,20 +452,20 @@ void ICACHE_FLASH_ATTR httpdCgiIsDone(HttpdInstance *pInstance, HttpdConnData *c
 
 //Callback called when the data on a socket has been successfully
 //sent.
-void ICACHE_FLASH_ATTR httpdSentCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort) {
+CallbackStatus ICACHE_FLASH_ATTR httpdSentCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort) {
 	HttpdConnData *conn=httpdFindConnData(pInstance, rconn, remIp, remPort);
-	httpdContinue(pInstance, conn);
+	return httpdContinue(pInstance, conn);
 }
 
 //Can be called after a CGI function has returned HTTPD_CGI_MORE to
 //resume handling an open connection asynchronously
-void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * conn) {
+CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * conn) {
 	int r;
 	httpdPlatLock(pInstance);
 
 	char *sendBuff;
 
-	if (conn==NULL) return;
+	if (conn==NULL) return CallbackErrorNullConnection;
 
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	if (conn->priv.sendBacklog!=NULL) {
@@ -480,7 +480,7 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 		free(conn->priv.sendBacklog);
 		conn->priv.sendBacklog=next;
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackSuccess;
 	}
 #endif
 
@@ -488,20 +488,20 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 		ESP_LOGD(TAG, "Pool slot %d done, closing", conn->slot);
 		httpdPlatDisconnect(conn->conn);
 		httpdPlatUnlock(pInstance);
-		return; //No need to call httpdFlushSendBuffer.
+		return CallbackSuccess; //No need to call httpdFlushSendBuffer.
 	}
 
 	//If we don't have a CGI function, there's nothing to do but wait for something from the client.
 	if (conn->cgi==NULL) {
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackSuccess;
 	}
 
 	sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
 	if (sendBuff==NULL) {
 		ESP_LOGE(TAG, "Malloc of sendBuff");
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackErrorMemory;
 	}
 	conn->priv.sendBuff=sendBuff;
 	conn->priv.sendBuffLen=0;
@@ -516,6 +516,8 @@ void ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * c
 	httpdFlushSendBuffer(pInstance, conn);
 	free(sendBuff);
 	httpdPlatUnlock(pInstance);
+
+	return CallbackSuccess;
 }
 
 //This is called when the headers have been received and the connection is ready to send
@@ -722,22 +724,23 @@ void ICACHE_FLASH_ATTR httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnDa
 }
 
 //Callback called when there's data available on a socket.
-void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort, char *data, unsigned short len) {
+CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort, char *data, unsigned short len) {
 	int x, r;
 	char *p, *e;
+	CallbackStatus status = CallbackSuccess;
 	httpdPlatLock(pInstance);
 
 	HttpdConnData *conn = httpdFindConnData(pInstance, rconn, remIp, remPort);
 	if (conn==NULL) {
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackErrorCannotFindConnection;
 	}
 
 	char *sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
 	if (sendBuff==NULL) {
 		ESP_LOGE(TAG, "Malloc sendBuff");
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackErrorMemory;
 	}
 	conn->priv.sendBuff=sendBuff;
 	conn->priv.sendBuffLen=0;
@@ -816,32 +819,37 @@ void ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr rconn, 
 				break; //ignore rest of data, recvhdl has parsed it.
 			} else {
 				ESP_LOGE(TAG, "Unexpected data from client. %s", data);
+				status = CallbackError;
 			}
 		}
 	}
 	if (conn->conn) httpdFlushSendBuffer(pInstance, conn);
 	free(sendBuff);
 	httpdPlatUnlock(pInstance);
+
+	return status;
 }
 
 //The platform layer should ALWAYS call this function, regardless if the connection is closed by the server
 //or by the client.
-void ICACHE_FLASH_ATTR httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort) {
+CallbackStatus ICACHE_FLASH_ATTR httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr rconn, char *remIp, int remPort) {
 	httpdPlatLock(pInstance);
 	HttpdConnData *hconn=httpdFindConnData(pInstance, rconn, remIp, remPort);
 	if (hconn==NULL) {
 		httpdPlatUnlock(pInstance);
-		return;
+		return CallbackErrorCannotFindConnection;
 	}
 	ESP_LOGD(TAG, "Pool slot %d: socket closed", hconn->slot);
 	hconn->conn=NULL; //indicate cgi the connection is gone
 	if (hconn->cgi) hconn->cgi(hconn); //Execute cgi fn if needed
 	httpdRetireConn(pInstance, hconn);
 	httpdPlatUnlock(pInstance);
+
+	return CallbackSuccess;
 }
 
 
-int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort) {
+CallbackStatus ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort) {
 	int i;
 	httpdPlatLock(pInstance);
 	//Find empty conndata in pool
@@ -850,14 +858,14 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	if (i==pInstance->maxConnections) {
 		ESP_LOGE(TAG, "conn pool overflow");
 		httpdPlatUnlock(pInstance);
-		return 0;
+		return CallbackErrorOutOfConnections;
 	}
 	HttpdConnData *pConnData = malloc(sizeof(HttpdConnData));
 	pInstance->connData[i] = pConnData;
 	if (pConnData==NULL) {
 		ESP_LOGE(TAG, "Out of memory allocating connData");
 		httpdPlatUnlock(pInstance);
-		return 0;
+		return CallbackErrorMemory;
 	}
 	memset(pConnData, 0, sizeof(HttpdConnData));
 	memset(&pConnData->priv, 0, sizeof(HttpdPriv));
@@ -878,7 +886,7 @@ int ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn,
 	memcpy(pConnData->remote_ip, remIp, 4);
 
 	httpdPlatUnlock(pInstance);
-	return 1;
+	return CallbackSuccess;
 }
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT

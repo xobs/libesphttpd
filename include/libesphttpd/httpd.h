@@ -159,6 +159,16 @@ typedef struct HttpdInstance
 	HttpdConnData *connData[HTTPD_MAX_CONNECTIONS];
 } HttpdInstance;
 
+typedef enum
+{
+	CallbackSuccess,
+	CallbackErrorOutOfConnections,
+	CallbackErrorCannotFindConnection,
+	CallbackErrorMemory,
+	CallbackErrorNullConnection,
+	CallbackError
+} CallbackStatus;
+
 const char *httpdGetMimetype(const char *url);
 void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
@@ -169,16 +179,16 @@ int httpdSend(HttpdConnData *conn, const char *data, int len);
 int httpdSend_js(HttpdConnData *conn, const char *data, int len);
 int httpdSend_html(HttpdConnData *conn, const char *data, int len);
 void httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnData *conn);
-void httpdContinue(HttpdInstance *pInstance, HttpdConnData *conn);
+CallbackStatus httpdContinue(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime);
 
 //Platform dependent code should call these.
-void httpdSentCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
-void httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort, char *data, unsigned short len);
-void httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
-int httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+CallbackStatus httpdSentCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+CallbackStatus httpdRecvCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort, char *data, unsigned short len);
+CallbackStatus httpdDisconCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
+CallbackStatus httpdConnectCb(HttpdInstance *pInstance, ConnTypePtr conn, char *remIp, int remPort);
 
 #define esp_container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
