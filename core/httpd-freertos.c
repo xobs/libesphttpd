@@ -252,6 +252,8 @@ static void platHttpServerTask(void *pvParameters) {
 	server_addr.sin_port = htons(pInstance->httpPort); /* Local port */
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+	int ssl_error;
+
 	if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
 	{
 		pInstance->ctx = sslCreateContext();
@@ -385,7 +387,8 @@ static void platHttpServerTask(void *pvParameters) {
 					ESP_LOGD(TAG, "SSL server accept client .....");
 					ret = SSL_accept(pRconn->ssl);
 					if (!ret) {
-						ESP_LOGE(TAG, "SSL_accept");
+						ssl_error = SSL_get_error(pRconn->ssl, ret);
+						ESP_LOGE(TAG, "SSL_accept %d", ssl_error);
 						close(remotefd);
 						SSL_free(pRconn->ssl);
 						pRconn->fd = -1;
@@ -441,7 +444,6 @@ static void platHttpServerTask(void *pvParameters) {
 
 							bytesStillAvailable = SSL_has_pending(pRconn->ssl);
 
-							int ssl_error;
 							if(ret <= 0)
 							{
 								ssl_error = SSL_get_error(pRconn->ssl, ret);
