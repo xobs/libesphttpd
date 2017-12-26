@@ -1,7 +1,7 @@
 #ifndef HTTPD_H
 #define HTTPD_H
 
-#include "route.h"
+#include <stdint.h>
 
 #define HTTPDVER "0.5"
 
@@ -128,9 +128,6 @@ typedef struct {
 	const void *cgiArg2;
 } HttpdBuiltInUrl;
 
-CgiStatus cgiRedirect(HttpdConnData *connData);
-CgiStatus cgiRedirectToHostname(HttpdConnData *connData);
-CgiStatus cgiRedirectApClientToHostname(HttpdConnData *connData);
 void httpdRedirect(HttpdConnData *conn, const char *newUrl);
 int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);

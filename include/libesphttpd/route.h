@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cgiredirect.h"
+
 // macros for defining HttpdBuiltInUrl's
 
 /** Route with a CGI handler and two arguments */
