@@ -584,7 +584,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
 }
 
 //Parse a line of header data and modify the connection data accordingly.
-static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
+static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 	int i;
 	char firstLine=0;
 
@@ -621,7 +621,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 
 		//Figure out end of url.
 		e=(char*)strstr(conn->url, " ");
-		if (e==NULL) return; //wtf?
+		if (e==NULL) return CallbackError;
 		*e=0; //terminate url part
 		e++; //Skip to protocol indicator
 		while (*e==' ') e++; //Skip spaces.
@@ -661,7 +661,7 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		conn->post.buff=(char*)malloc(conn->post.buffSize + 1);
 		if (conn->post.buff==NULL) {
 			ESP_LOGE(TAG, "malloc failed");
-			return;
+			return CallbackErrorMemory;
 		}
 		conn->post.buffLen=0;
 	} else if (strncasecmp(h, "Content-Type: ", 14)==0) {
@@ -685,6 +685,8 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 		strncpy(conn->priv.corsToken, h+strlen("Access-Control-Request-Headers: "), MAX_CORS_TOKEN_LEN);
 	}
 #endif
+
+    return CallbackSuccess;
 }
 
 //Make a connection 'live' so we can do all the things a cgi can do to it.
