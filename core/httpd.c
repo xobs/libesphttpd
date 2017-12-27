@@ -689,16 +689,20 @@ static void ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
 
 //Make a connection 'live' so we can do all the things a cgi can do to it.
 //ToDo: Also make httpdRecvCb/httpdContinue use these?
-//ToDo: Fail if malloc fails?
-void ICACHE_FLASH_ATTR httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn) {
-	httpdPlatLock(pInstance);
-	char *sendBuff = malloc(HTTPD_MAX_SENDBUFF_LEN);
-	if (sendBuff==NULL) {
-		ESP_LOGE(TAG, "Malloc sendBuff");
-		return;
-	}
-	conn->priv.sendBuff=sendBuff;
-	conn->priv.sendBuffLen=0;
+CallbackStatus ICACHE_FLASH_ATTR httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn) {
+    CallbackStatus status;
+    httpdPlatLock(pInstance);
+    char *sendBuff = malloc(HTTPD_MAX_SENDBUFF_LEN);
+    if (sendBuff==NULL) {
+        ESP_LOGE(TAG, "Malloc sendBuff");
+        status = CallbackErrorMemory;
+    } else
+    {
+        conn->priv.sendBuff=sendBuff;
+        conn->priv.sendBuffLen=0;
+        status = CallbackSuccess;
+    }
+    return status;
 }
 
 //Finish the live-ness of a connection. Always call this after httpdConnStart

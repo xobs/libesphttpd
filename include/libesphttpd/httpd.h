@@ -184,7 +184,7 @@ int httpdSend_js(HttpdConnData *conn, const char *data, int len);
 int httpdSend_html(HttpdConnData *conn, const char *data, int len);
 void httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnData *conn);
 CallbackStatus httpdContinue(HttpdInstance *pInstance, HttpdConnData *conn);
-void httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn);
+CallbackStatus httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn);
 void httpdAddCacheHeaders(HttpdConnData *connData, const char *mime);
 
