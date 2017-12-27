@@ -5,7 +5,6 @@
 #define ESP32 1
 
 #include "sdkconfig.h"
-#define HTTPD_MAX_CONNECTIONS CONFIG_ESPHTTPD_MAX_CONNECTIONS
 #define HTTPD_STACKSIZE CONFIG_ESPHTTPD_STACK_SIZE
 #include "stdint.h"
 typedef uint8_t uint8;

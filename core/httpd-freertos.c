@@ -328,7 +328,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		if (!socketsFull) {
 			FD_SET(listenfd, &readset);
 			if (listenfd>maxfdp) maxfdp=listenfd;
-			ESP_LOGD(TAG, "Sel add listen %d", listenfd);
+            ESP_LOGD(TAG, "Sel add listen %d", listenfd);
 		}
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
@@ -636,20 +636,19 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 {
 	HttpdInitStatus status;
 
-	if(maxConnections > HTTPD_MAX_CONNECTIONS)
-	{
-		status = ErrorTooManyConnections;
-	} else
-	{
-		pInstance->httpdInstance.builtInUrls=fixedUrls;
-		pInstance->httpdInstance.maxConnections = maxConnections;
+	pInstance->httpdInstance.builtInUrls=fixedUrls;
+	pInstance->httpdInstance.maxConnections = maxConnections;
 
-		status = InitializationSuccess;
-		pInstance->httpPort = port;
-		pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
-		pInstance->httpdFlags = flags;
-		pInstance->isShutdown = false;
+	status = InitializationSuccess;
+	pInstance->httpPort = port;
+	pInstance->httpListenAddress.sin_addr.s_addr = listenAddress;
+	pInstance->httpdFlags = flags;
+	pInstance->isShutdown = false;
 
+    int rconnSize = sizeof(RtosConnType) * maxConnections;
+    pInstance->rconn = malloc(rconnSize);
+	if(pInstance->rconn)
+	{
 	#ifdef linux
 		pthread_t thread;
 		pthread_create(&thread, NULL, platHttpServerTask, pInstance);
@@ -661,18 +660,22 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 	#endif
 	#endif
 
-		ESP_LOGI(TAG, "port %d", port);
+		ESP_LOGI(TAG, "port %d, maxConnections %d", port, maxConnections);
+	} else
+	{
+        ESP_LOGE(TAG, "malloc() of %d bytes", rconnSize);
+		status = ErrorMemoryAllocation;
 	}
 
 	return status;
 }
 
 HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInstance,
-				const HttpdBuiltInUrl *fixedUrls, int port, HttpdFlags flags)
+				const HttpdBuiltInUrl *fixedUrls, int port, int maxConnections, HttpdFlags flags)
 {
 	HttpdInitStatus status;
 
-	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, HTTPD_MAX_CONNECTIONS, flags);
+	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, maxConnections, flags);
 	ESP_LOGI(TAG, "init");
 
 	return status;
@@ -718,6 +721,9 @@ void httpdPlatShutdown(HttpdInstance *pInstance)
 	}
 
 	close(s);
+
+	free(pFR->rconn);
+	pFR->rconn = 0;
 }
 #endif
 

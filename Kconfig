@@ -5,15 +5,6 @@ menuconfig ESPHTTPD_ENABLED
     help
         Select this option to enable libesphttpd and show the submodule with libesphttpd configuration
 
-config ESPHTTPD_MAX_CONNECTIONS
-	int "Maximum amount of connections"
-        depends on ESPHTTPD_ENABLED
-	range 1 LWIP_MAX_SOCKETS
-	default 6
-	help
-		Amount of concurrent connections esp-httpd can sustain. Cannot be more than the amount of sockets lwip supports.
-		NOTE: Httpd instances can be limited to fewer connections with the HttpdxxxxEx() server creation functions.
-
 config ESPHTTPD_STACK_SIZE
 	int "Stack size of ESP-HTTPD task"
         depends on ESPHTTPD_ENABLED
@@ -34,7 +25,7 @@ config ESPHTTPD_CORS_SUPPORT
         depends on ESPHTTPD_ENABLED
     help
         Enable support for CORS, cross origin resource sharing.
-        NOTE: Requires 256 bytes of RAM for each connection (ESPHTTD_MAX_CONNECTIONS)
+        NOTE: Requires 256 bytes of RAM for each connection
 
 config ESPHTTPD_HTMLDIR
 	string "Directory (on the build machine) where the static files served by the webserver are"

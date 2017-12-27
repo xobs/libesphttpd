@@ -39,7 +39,7 @@ struct RtosConnType{
 
 typedef struct
 {
-    RtosConnType rconn[HTTPD_MAX_CONNECTIONS];
+    RtosConnType *rconn;
 
     int httpPort;
     struct sockaddr_in httpListenAddress;
@@ -68,11 +68,15 @@ typedef struct
 } HttpdFreertosInstance;
 
 HttpdInitStatus httpdFreertosInit(HttpdFreertosInstance *pInstance,
-                                  const HttpdBuiltInUrl *fixedUrls,
-                                  int port, HttpdFlags flags);
+                                const HttpdBuiltInUrl *fixedUrls,
+                                int port,
+                                int maxConnections,
+                                HttpdFlags flags);
 
 /* NOTE: listenAddress is in network byte order */
 HttpdInitStatus httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
-									const HttpdBuiltInUrl *fixedUrls, int port,
-									uint32_t listenAddress, int maxConnections,
-									HttpdFlags flags);
+                                    const HttpdBuiltInUrl *fixedUrls,
+                                    int port,
+                                    uint32_t listenAddress,
+                                    int maxConnections,
+                                    HttpdFlags flags);

@@ -153,9 +153,7 @@ typedef enum
 typedef enum
 {
 	InitializationSuccess,
-
-	/* More connections requested than HTTPD_MAX_CONNECTIONS */
-	ErrorTooManyConnections,
+	ErrorMemoryAllocation
 } HttpdInitStatus;
 
 /** Common elements to the core server code */

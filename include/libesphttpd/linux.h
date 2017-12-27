@@ -1,7 +1,5 @@
 #pragma once
 
-#define HTTPD_MAX_CONNECTIONS CONFIG_ESPHTTPD_MAX_CONNECTIONS
-
 #include "stdint.h"
 typedef uint8_t uint8;
 typedef uint16_t uint16;
