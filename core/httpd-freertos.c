@@ -307,6 +307,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 	ESP_LOGI(TAG, "esphttpd: active and listening to connections");
 	bool shutdown = false;
+    bool listeningForNewConnections = false;
 	while(!shutdown){
 		// clear fdset, and set the select function wait time
 		int socketsFull=1;
@@ -325,11 +326,23 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 			}
 		}
 
-		if (!socketsFull) {
-			FD_SET(listenfd, &readset);
-			if (listenfd>maxfdp) maxfdp=listenfd;
+        if (!socketsFull) {
+            FD_SET(listenfd, &readset);
+            if (listenfd>maxfdp) maxfdp=listenfd;
             ESP_LOGD(TAG, "Sel add listen %d", listenfd);
-		}
+            if(!listeningForNewConnections)
+            {
+                listeningForNewConnections = true;
+                ESP_LOGI(TAG, "listening for new connections");
+            }
+        } else
+        {
+            if(listeningForNewConnections)
+            {
+                listeningForNewConnections = false;
+                ESP_LOGI(TAG, "all connections in use");
+            }
+        }
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
 		FD_SET(udpListenfd, &readset);
