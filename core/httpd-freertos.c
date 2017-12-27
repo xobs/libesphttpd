@@ -673,7 +673,8 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 	#endif
 	#endif
 
-		ESP_LOGI(TAG, "port %d, maxConnections %d", port, maxConnections);
+		ESP_LOGI(TAG, "port %d, maxConnections %d, mode %s",
+                port, maxConnections, (flags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
 	} else
 	{
         ESP_LOGE(TAG, "malloc() of %d bytes", rconnSize);
