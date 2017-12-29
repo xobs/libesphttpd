@@ -11,7 +11,9 @@ the internal webserver.
 */
 
 #include <libesphttpd/esp.h>
-#ifndef ESP32
+#include "esp_log.h"
+
+static const char* TAG = "captdns";
 
 #ifdef FREERTOS
 
@@ -19,6 +21,7 @@ the internal webserver.
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "tcpip_adapter.h"
 #else
 #include "FreeRTOS.h"
 #include "task.h"
@@ -172,22 +175,23 @@ static char ICACHE_FLASH_ATTR *strToLabel(char *str, char *label, int maxLen) {
 
 
 //Receive a DNS packet and maybe send a response back
+static char buff[DNS_LEN];
+static char reply[DNS_LEN];
+
 #ifndef FREERTOS
 static void ICACHE_FLASH_ATTR captdnsRecv(void* arg, char *pusrdata, unsigned short length) {
 	struct espconn *conn=(struct espconn *)arg;
 #else
 static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char *pusrdata, unsigned short length) {
 #endif
-	char buff[DNS_LEN];
-	char reply[DNS_LEN];
 	int i;
 	char *rend=&reply[length];
 	char *p=pusrdata;
 	DnsHeader *hdr=(DnsHeader*)p;
 	DnsHeader *rhdr=(DnsHeader*)&reply[0];
 	p+=sizeof(DnsHeader);
-//	httpd_printf("DNS packet: id 0x%X flags 0x%X rcode 0x%X qcnt %d ancnt %d nscount %d arcount %d len %d\n",
-//		my_ntohs(&hdr->id), hdr->flags, hdr->rcode, my_ntohs(&hdr->qdcount), my_ntohs(&hdr->ancount), my_ntohs(&hdr->nscount), my_ntohs(&hdr->arcount), length);
+    ESP_LOGD(TAG, "DNS packet: id 0x%X flags 0x%X rcode 0x%X qcnt %d ancnt %d nscount %d arcount %d len %d",
+		my_ntohs(&hdr->id), hdr->flags, hdr->rcode, my_ntohs(&hdr->qdcount), my_ntohs(&hdr->ancount), my_ntohs(&hdr->nscount), my_ntohs(&hdr->arcount), length);
 	//Some sanity checks:
 	if (length>DNS_LEN) return; 								//Packet is longer than DNS implementation allows
 	if (length<sizeof(DnsHeader)) return; 						//Packet is too short
@@ -202,7 +206,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 		if (p==NULL) return;
 		DnsQuestionFooter *qf=(DnsQuestionFooter*)p;
 		p+=sizeof(DnsQuestionFooter);
-		httpd_printf("DNS: Q (type 0x%X class 0x%X) for %s\n", my_ntohs(&qf->type), my_ntohs(&qf->class), buff);
+		ESP_LOGI(TAG, "DNS: Q (type 0x%X class 0x%X) for %s", my_ntohs(&qf->type), my_ntohs(&qf->class), buff);
 		if (my_ntohs(&qf->type)==QTYPE_A) {
 			//They want to know the IPv4 address of something.
 			//Build the response.
@@ -215,14 +219,19 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			setn32(&rf->ttl, 0);
 			setn16(&rf->rdlength, 4); //IPv4 addr is 4 bytes;
 			//Grab the current IP of the softap interface
+#ifdef ESP32
+            tcpip_adapter_ip_info_t info;
+            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &info);
+#else
 			struct ip_info info;
 			wifi_get_ip_info(SOFTAP_IF, &info);
+#endif
 			*rend++=ip4_addr1(&info.ip);
 			*rend++=ip4_addr2(&info.ip);
 			*rend++=ip4_addr3(&info.ip);
 			*rend++=ip4_addr4(&info.ip);
 			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
-//			httpd_printf("Added A rec to resp. Resp len is %d\n", (rend-reply));
+			ESP_LOGD(TAG, "Added A rec to resp. Resp len is %d", (rend-reply));
 		} else if (my_ntohs(&qf->type)==QTYPE_NS) {
 			//Give ns server. Basically can be whatever we want because it'll get resolved to our IP later anyway.
 			rend=strToLabel(buff, rend, sizeof(reply)-(rend-reply)); //Add the label
@@ -237,7 +246,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			*rend++='s';
 			*rend++=0;
 			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
-//			httpd_printf("Added NS rec to resp. Resp len is %d\n", (rend-reply));
+			ESP_LOGD(TAG, "Added NS rec to resp. Resp len is %d", (rend-reply));
 		} else if (my_ntohs(&qf->type)==QTYPE_URI) {
 			//Give uri to us
 			rend=strToLabel(buff, rend, sizeof(reply)-(rend-reply)); //Add the label
@@ -254,7 +263,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			memcpy(rend, "http://esp.nonet", 16);
 			rend+=16;
 			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
-//			httpd_printf("Added NS rec to resp. Resp len is %d\n", (rend-reply));
+			ESP_LOGD(TAG, "Added NS rec to resp. Resp len is %d", (rend-reply));
 		}
 	}
 	//Send the response
@@ -272,13 +281,17 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 }
 
 #ifdef FREERTOS
+char udp_msg[DNS_LEN];
 static void captdnsTask(void *pvParameters) {
 	struct sockaddr_in server_addr;
 	int32 ret;
 	struct sockaddr_in from;
 	socklen_t fromlen;
+#ifdef ESP32
+    tcpip_adapter_ip_info_t ipconfig;
+#else
 	struct ip_info ipconfig;
-	char udp_msg[DNS_LEN];
+#endif
 
 	memset(&ipconfig, 0, sizeof(ipconfig));
 	memset(&server_addr, 0, sizeof(server_addr));
@@ -290,7 +303,7 @@ static void captdnsTask(void *pvParameters) {
 	do {
 		sockFd=socket(AF_INET, SOCK_DGRAM, 0);
 		if (sockFd==-1) {
-			httpd_printf("captdns_task failed to create sock!\n");
+			ESP_LOGE(TAG, "captdns_task failed to create sock");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while (sockFd==-1);
@@ -298,16 +311,16 @@ static void captdnsTask(void *pvParameters) {
 	do {
 		ret=bind(sockFd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (ret!=0) {
-			httpd_printf("captdns_task failed to bind sock!\n");
+			ESP_LOGE(TAG, "captdns_task failed to bind sock");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while (ret!=0);
 
-	httpd_printf("CaptDNS inited.\n");
+	ESP_LOGI(TAG, "CaptDNS inited");
 	while(1) {
 		memset(&from, 0, sizeof(from));
 		fromlen=sizeof(struct sockaddr_in);
-		ret=recvfrom(sockFd, (u8 *)udp_msg, DNS_LEN, 0,(struct sockaddr *)&from,(socklen_t *)&fromlen);
+		ret=recvfrom(sockFd, (uint8_t *)udp_msg, DNS_LEN, 0,(struct sockaddr *)&from,(socklen_t *)&fromlen);
 		if (ret>0) captdnsRecv(&from,udp_msg,ret);
 	}
 
@@ -317,7 +330,7 @@ static void captdnsTask(void *pvParameters) {
 
 void captdnsInit(void) {
 #ifdef ESP32
-	xTaskCreate(captdnsTask, (const char *)"captdns_task", 1200, NULL, 3, NULL);
+	xTaskCreate(captdnsTask, (const char *)"captdns_task", 2900, NULL, 3, NULL);
 #else
 	xTaskCreate(captdnsTask, (const signed char *)"captdns_task", 1200, NULL, 3, NULL);
 #endif
@@ -334,7 +347,5 @@ void ICACHE_FLASH_ATTR captdnsInit(void) {
 	espconn_regist_recvcb(&conn, captdnsRecv);
 	espconn_create(&conn);
 }
-
-#endif
 
 #endif
