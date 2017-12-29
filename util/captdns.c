@@ -114,12 +114,6 @@ static void ICACHE_FLASH_ATTR setn32(void *pp, int32_t n) {
 	*p++=(n&0xff);
 }
 
-static uint16_t ICACHE_FLASH_ATTR my_ntohs(uint16_t *in) {
-	char *p=(char*)in;
-	return ((p[0]<<8)&0xff00)|(p[1]&0xff);
-}
-
-
 //Parses a label into a C-string containing a dotted
 //Returns pointer to start of next fields in packet
 static char* ICACHE_FLASH_ATTR labelToStr(char *packet, char *labelPtr, int packetSz, char *res, int resMaxLen) {
@@ -139,7 +133,7 @@ static char* ICACHE_FLASH_ATTR labelToStr(char *packet, char *labelPtr, int pack
 		} else if ((*labelPtr&0xC0)==0xC0) {
 			//Compressed label pointer
 			endPtr=labelPtr+2;
-			int offset=my_ntohs(((uint16_t *)labelPtr))&0x3FFF;
+			int offset=ntohs(*((uint16_t *)labelPtr))&0x3FFF;
 			//Check if offset points to somewhere outside of the packet
 			if (offset>packetSz) return NULL;
 			labelPtr=&packet[offset];
@@ -191,7 +185,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 	DnsHeader *rhdr=(DnsHeader*)&reply[0];
 	p+=sizeof(DnsHeader);
     ESP_LOGD(TAG, "DNS packet: id 0x%X flags 0x%X rcode 0x%X qcnt %d ancnt %d nscount %d arcount %d len %d",
-		my_ntohs(&hdr->id), hdr->flags, hdr->rcode, my_ntohs(&hdr->qdcount), my_ntohs(&hdr->ancount), my_ntohs(&hdr->nscount), my_ntohs(&hdr->arcount), length);
+		ntohs(hdr->id), hdr->flags, hdr->rcode, ntohs(hdr->qdcount), ntohs(hdr->ancount), ntohs(hdr->nscount), ntohs(hdr->arcount), length);
 	//Some sanity checks:
 	if (length>DNS_LEN) return; 								//Packet is longer than DNS implementation allows
 	if (length<sizeof(DnsHeader)) return; 						//Packet is too short
@@ -200,14 +194,14 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 	//Reply is basically the request plus the needed data
 	memcpy(reply, pusrdata, length);
 	rhdr->flags|=FLAG_QR;
-	for (i=0; i<my_ntohs(&hdr->qdcount); i++) {
+	for (i=0; i<ntohs(hdr->qdcount); i++) {
 		//Grab the labels in the q string
 		p=labelToStr(pusrdata, p, length, buff, sizeof(buff));
 		if (p==NULL) return;
 		DnsQuestionFooter *qf=(DnsQuestionFooter*)p;
 		p+=sizeof(DnsQuestionFooter);
-		ESP_LOGI(TAG, "DNS: Q (type 0x%X class 0x%X) for %s", my_ntohs(&qf->type), my_ntohs(&qf->class), buff);
-		if (my_ntohs(&qf->type)==QTYPE_A) {
+		ESP_LOGI(TAG, "DNS: Q (type 0x%X class 0x%X) for %s", ntohs(qf->type), ntohs(qf->class), buff);
+		if (ntohs(qf->type)==QTYPE_A) {
 			//They want to know the IPv4 address of something.
 			//Build the response.
 			rend=strToLabel(buff, rend, sizeof(reply)-(rend-reply)); //Add the label
@@ -230,9 +224,9 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			*rend++=ip4_addr2(&info.ip);
 			*rend++=ip4_addr3(&info.ip);
 			*rend++=ip4_addr4(&info.ip);
-			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
+			setn16(&rhdr->ancount, ntohs(rhdr->ancount)+1);
 			ESP_LOGD(TAG, "Added A rec to resp. Resp len is %d", (rend-reply));
-		} else if (my_ntohs(&qf->type)==QTYPE_NS) {
+		} else if (ntohs(qf->type)==QTYPE_NS) {
 			//Give ns server. Basically can be whatever we want because it'll get resolved to our IP later anyway.
 			rend=strToLabel(buff, rend, sizeof(reply)-(rend-reply)); //Add the label
 			DnsResourceFooter *rf=(DnsResourceFooter *)rend;
@@ -245,9 +239,9 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			*rend++='n';
 			*rend++='s';
 			*rend++=0;
-			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
+			setn16(&rhdr->ancount, ntohs(rhdr->ancount)+1);
 			ESP_LOGD(TAG, "Added NS rec to resp. Resp len is %d", (rend-reply));
-		} else if (my_ntohs(&qf->type)==QTYPE_URI) {
+		} else if (ntohs(qf->type)==QTYPE_URI) {
 			//Give uri to us
 			rend=strToLabel(buff, rend, sizeof(reply)-(rend-reply)); //Add the label
 			DnsResourceFooter *rf=(DnsResourceFooter *)rend;
@@ -262,7 +256,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 			setn16(&uh->weight, 1);
 			memcpy(rend, "http://esp.nonet", 16);
 			rend+=16;
-			setn16(&rhdr->ancount, my_ntohs(&rhdr->ancount)+1);
+			setn16(&rhdr->ancount, ntohs(rhdr->ancount)+1);
 			ESP_LOGD(TAG, "Added NS rec to resp. Resp len is %d", (rend-reply));
 		}
 	}
