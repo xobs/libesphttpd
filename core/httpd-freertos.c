@@ -313,7 +313,8 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		/* Listen to the local connection */
 		ret = listen(listenfd, maxConnections);
 		if (ret != 0) {
-			ESP_LOGE(TAG, "listen");
+			ESP_LOGE(TAG, "listen on fd %d", listenfd);
+            perror("listen");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(ret != 0);
