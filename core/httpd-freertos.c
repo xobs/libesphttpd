@@ -369,6 +369,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 				remotefd = accept(listenfd, (struct sockaddr *)&remote_addr, (socklen_t *)&len);
 				if (remotefd<0) {
 					ESP_LOGE(TAG, "accept failed");
+                    perror("accept");
 					continue;
 				}
 				for(x=0; x < maxConnections; x++) if (pInstance->rconn[x].fd==-1) break;
