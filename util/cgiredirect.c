@@ -16,38 +16,43 @@ CgiStatus ICACHE_FLASH_ATTR cgiRedirect(HttpdConnData *connData) {
 	return HTTPD_CGI_DONE;
 }
 
-//This CGI function redirects to a fixed url of http://[hostname]/ if hostname field of request isn't
-//already that hostname. Use this in combination with a DNS server that redirects everything to the
-//ESP in order to load a HTML page as soon as a phone, tablet etc connects to the ESP. Watch out:
-//this will also redirect connections when the ESP is in STA mode, potentially to a hostname that is not
-//in the 'official' DNS and so will fail.
 CgiStatus ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
 	static const char hostFmt[]="http://%s/";
 	char *buff;
 	int isIP=0;
 	int x;
 	if (connData->isConnectionClosed) {
-		//Connection aborted. Clean up.
+		// Connection closed.
 		return HTTPD_CGI_DONE;
 	}
 	if (connData->hostName==NULL) {
-		ESP_LOGE(TAG, "No hostname");
 		return HTTPD_CGI_NOTFOUND;
 	}
 
-	//Quick and dirty code to see if host is an IP
-	if (strlen(connData->hostName)>8) {
-		isIP=1;
-		for (x=0; x<strlen(connData->hostName); x++) {
-			if (connData->hostName[x]!='.' && (connData->hostName[x]<'0' || connData->hostName[x]>'9')) isIP=0;
-		}
-	}
-	if (isIP) return HTTPD_CGI_NOTFOUND;
-	//Check hostname; pass on if the same
-	if (strcasecmp(connData->hostName, (char*)connData->cgiArg)==0) return HTTPD_CGI_NOTFOUND;
+    //Quick and dirty code to see if host is an IP
+    if (strlen(connData->hostName)>8)
+    {
+        isIP=1;
+        for (x=0; x<strlen(connData->hostName); x++) {
+            if (connData->hostName[x]!='.' && (connData->hostName[x]<'0' || connData->hostName[x]>'9')) isIP=0;
+        }
+    }
+
+    if (isIP)
+    {
+        return HTTPD_CGI_NOTFOUND;
+    }
+
+    //Check hostname; pass on if the same
+    if (strcasecmp(connData->hostName, (char*)connData->cgiArg)==0)
+    {
+        return HTTPD_CGI_NOTFOUND;
+    }
+
 	//Not the same. Redirect to real hostname.
-	buff=malloc(strlen((char*)connData->cgiArg)+sizeof(hostFmt));
+	buff = malloc(strlen((char*)connData->cgiArg)+sizeof(hostFmt));
 	if (buff==NULL) {
+        ESP_LOGE(TAG, "error allocating memory");
 		//Bail out
 		return HTTPD_CGI_DONE;
 	}
