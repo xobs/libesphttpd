@@ -289,6 +289,16 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		}
 	} while(listenfd == -1);
 
+#ifdef CONFIG_ESPHTTPD_SO_REUSEADDR
+    // enable SO_REUSEADDR so servers restarted on the same ip addresses
+    // do not require waiting for 2 minutes while the socket is in TIME_WAIT
+    int enable = 1;
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    {
+        perror("setsockopt(SO_REUSEADDR) failed");
+    }
+#endif
+
 	/* Bind to the local port */
 	do{
 		ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));

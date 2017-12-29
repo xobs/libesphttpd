@@ -39,6 +39,16 @@ config ESPHTTPD_USEUGLIFYJS
 	help
 		Compress JS files with the uglifyjs compressor. Needs uglifyjs installed.
 
+config ESPHTTPD_SO_REUSEADDR
+	bool "Set SO_REUSEADDR to avoid waiting for a port in TIME_WAIT."
+	depends on ESPHTTPD_ENABLED
+	default n
+	help
+		Requires LWIP_SO_REUSE to be enabled.
+
+		Sets the SO_REUSEADDR flag on a socket prior to attempting to bind(). Avoids the condition where
+		the bind() calls will fail while the port is in TIME_WAIT for a number of minutes.
+
 config ESPHTTPD_SSL_SUPPORT
 	bool "Enable SSL support"
         depends on ESPHTTPD_ENABLED
