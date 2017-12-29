@@ -385,7 +385,8 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 				}
 				for(x=0; x < maxConnections; x++) if (pInstance->rconn[x].fd==-1) break;
 				if (x == maxConnections) {
-					ESP_LOGE(TAG, "all connections in use");
+					ESP_LOGE(TAG, "all connections in use, closing fd");
+                    close(remotefd);
 					continue;
 				}
 
