@@ -263,6 +263,9 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 #endif
 	server_addr.sin_port = htons(pInstance->httpPort); /* Local port */
 
+    char serverStr[20];
+    inet_ntop(AF_INET, &(server_addr.sin_addr), serverStr, sizeof(serverStr));
+
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 	int ssl_error;
 
@@ -290,8 +293,8 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 	do{
 		ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (ret != 0) {
-			ESP_LOGE(TAG, "bind");
-			perror("bind failure");
+			ESP_LOGE(TAG, "bind to address %s", serverStr);
+			perror("bind");
 			vTaskDelay(1000/portTICK_RATE_MS);
 		}
 	} while(ret != 0);
@@ -305,7 +308,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		}
 	} while(ret != 0);
 
-	ESP_LOGI(TAG, "esphttpd: active and listening to connections");
+	ESP_LOGI(TAG, "esphttpd: active and listening to connections on %s", serverStr);
 	bool shutdown = false;
     bool listeningForNewConnections = false;
 	while(!shutdown){
@@ -532,7 +535,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
     }
 #endif
 
-	ESP_LOGI(TAG, "exiting");
+	ESP_LOGI(TAG, "httpd on %s exiting", serverStr);
 	pInstance->isShutdown = true;
 
 	PLAT_TASK_EXIT;
@@ -648,6 +651,8 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 				uint32_t listenAddress, int maxConnections, HttpdFlags flags)
 {
 	HttpdInitStatus status;
+    char serverStr[20];
+    inet_ntop(AF_INET, &(listenAddress), serverStr, sizeof(serverStr));
 
 	pInstance->httpdInstance.builtInUrls=fixedUrls;
 	pInstance->httpdInstance.maxConnections = maxConnections;
@@ -673,7 +678,8 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 	#endif
 	#endif
 
-		ESP_LOGI(TAG, "port %d, maxConnections %d, mode %s",
+		ESP_LOGI(TAG, "address %s, port %d, maxConnections %d, mode %s",
+                serverStr,
                 port, maxConnections, (flags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
 	} else
 	{
