@@ -347,14 +347,14 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
             if(!listeningForNewConnections)
             {
                 listeningForNewConnections = true;
-                ESP_LOGI(TAG, "listening for new connections");
+                ESP_LOGI(TAG, "listening for new connections on '%s'", serverStr);
             }
         } else
         {
             if(listeningForNewConnections)
             {
                 listeningForNewConnections = false;
-                ESP_LOGI(TAG, "all connections in use");
+                ESP_LOGI(TAG, "all %d connections in use on '%s'", maxConnections, serverStr);
             }
         }
 
