@@ -46,13 +46,15 @@ CgiStatus ICACHE_FLASH_ATTR cgiRedirectToHostname(HttpdConnData *connData) {
     //Check hostname; pass on if the same
     if (strcasecmp(connData->hostName, (char*)connData->cgiArg)==0)
     {
+        ESP_LOGD(TAG, "connData->hostName:'%s', redirect hostname: '%s'", connData->hostName,
+                (char*)connData->cgiArg);
         return HTTPD_CGI_NOTFOUND;
     }
 
 	//Not the same. Redirect to real hostname.
 	buff = malloc(strlen((char*)connData->cgiArg)+sizeof(hostFmt));
 	if (buff==NULL) {
-        ESP_LOGE(TAG, "error allocating memory");
+        ESP_LOGE(TAG, "allocating memory");
 		//Bail out
 		return HTTPD_CGI_DONE;
 	}
