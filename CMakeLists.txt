@@ -26,8 +26,10 @@ add_library(esphttpd
     core/httpd.c
     core/httpd-freertos.c
     core/sha1.c
+    core/linux/esp_log.c
     espfs/espfs.c
     util/cgiwebsocket.c
+    util/cgiredirect.c
 )
 
 set(ENABLE_SSL_SUPPORT 1)
@@ -38,9 +40,14 @@ if(ENABLE_SSL_SUPPORT)
     target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SSL_SUPPORT=1")
 endif()
 
+target_compile_definitions(esphttpd PUBLIC "CONFIG_LOG_DEFAULT_LEVEL=ESP_LOG_INFO")
+
+target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SO_REUSEADDR")
+
 target_include_directories(esphttpd PUBLIC "core")
 target_include_directories(esphttpd PUBLIC "include")
 target_include_directories(esphttpd PUBLIC "espfs")
+target_include_directories(esphttpd PUBLIC "include/linux")
 
 
 add_executable(mkespfsimage
@@ -70,9 +77,11 @@ install(TARGETS mkespfsimage DESTINATION bin)
 install(FILES include/libesphttpd/httpd.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/httpd-freertos.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/cgiwebsocket.h DESTINATION include/libesphttpd)
+install(FILES include/libesphttpd/cgiredirect.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/httpdespfs.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/linux.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/platform.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/route.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/espfs.h DESTINATION include/libesphttpd)
 install(FILES include/libesphttpd/webpages-espfs.h DESTINATION include/libesphttpd)
+install(FILES include/libesphttpd/esp.h DESTINATION include/libesphttpd)
