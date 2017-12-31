@@ -2,6 +2,7 @@
 #define HTTPD_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "esp.h"
 
