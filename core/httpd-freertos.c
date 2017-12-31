@@ -19,6 +19,7 @@ Thanks to my collague at Espressif for writing the foundations of this code.
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #else
 #include <libesphttpd/esp.h>
