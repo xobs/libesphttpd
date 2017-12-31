@@ -550,9 +550,9 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 
 	ESP_LOGI(TAG, "httpd on %s exiting", serverStr);
 	pInstance->isShutdown = true;
+#endif /* #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT */
 
 	PLAT_TASK_EXIT;
-#endif /* #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT */
 }
 
 #ifdef linux
