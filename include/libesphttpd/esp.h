@@ -23,6 +23,8 @@ typedef int32_t int32;
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef linux
+
 #ifdef FREERTOS
 #include <stdint.h>
 #ifdef ESP32
@@ -45,5 +47,10 @@ typedef int32_t int32;
 #include <upgrade.h>
 #endif
 
+#endif // #ifndef linux
+
 #include "platform.h"
+
+#ifndef linux
 #include "espmissingincludes.h"
+#endif
