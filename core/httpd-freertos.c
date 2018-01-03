@@ -250,7 +250,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 	if(ret != 0)
 	{
 		ESP_LOGE(TAG, "udp bind failure");
-		return;
+		PLAT_TASK_EXIT;
 	}
 	ESP_LOGI(TAG, "shutdown bound to udp port %d", pInstance->udpShutdownPort);
 #endif
