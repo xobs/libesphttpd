@@ -43,6 +43,7 @@ endif()
 target_compile_definitions(esphttpd PUBLIC "CONFIG_LOG_DEFAULT_LEVEL=ESP_LOG_INFO")
 
 target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SO_REUSEADDR")
+target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT")
 
 target_include_directories(esphttpd PUBLIC "core")
 target_include_directories(esphttpd PUBLIC "include")
