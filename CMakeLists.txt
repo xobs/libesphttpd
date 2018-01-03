@@ -34,8 +34,6 @@ add_library(esphttpd
 
 set(ENABLE_SSL_SUPPORT 1)
 
-target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_MAX_CONNECTIONS=100")
-
 if(ENABLE_SSL_SUPPORT)
     target_compile_definitions(esphttpd PUBLIC "CONFIG_ESPHTTPD_SSL_SUPPORT=1")
 endif()
