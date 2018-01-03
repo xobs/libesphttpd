@@ -34,9 +34,6 @@ typedef xTimerHandle HttpdPlatTimerHandle;
 typedef struct RtosConnType RtosConnType;
 typedef RtosConnType* ConnTypePtr;
 
-//FIXME: logging support under linux
-#define httpd_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
-
 #define vTaskDelay(milliseconds) usleep((milliseconds) * 1000)
 #define portTICK_RATE_MS 1
 
