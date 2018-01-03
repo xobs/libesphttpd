@@ -286,7 +286,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		listenfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (listenfd == -1) {
 			ESP_LOGE(TAG, "socket");
-			vTaskDelay(1000/portTICK_RATE_MS);
+			vTaskDelay(1000/portTICK_PERIOD_MS);
 		}
 	} while(listenfd == -1);
 
@@ -306,7 +306,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		if (ret != 0) {
 			ESP_LOGE(TAG, "bind to address %s", serverStr);
 			perror("bind");
-			vTaskDelay(1000/portTICK_RATE_MS);
+			vTaskDelay(1000/portTICK_PERIOD_MS);
 		}
 	} while(ret != 0);
 
@@ -316,7 +316,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters) {
 		if (ret != 0) {
 			ESP_LOGE(TAG, "listen on fd %d", listenfd);
             perror("listen");
-			vTaskDelay(1000/portTICK_RATE_MS);
+			vTaskDelay(1000/portTICK_PERIOD_MS);
 		}
 	} while(ret != 0);
 
@@ -641,7 +641,7 @@ HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int au
 #ifdef ESP32
 	ret=xTimerCreate(name, pdMS_TO_TICKS(periodMs), autoreload?pdTRUE:pdFALSE, ctx, callback);
 #else
-	ret=xTimerCreate((const signed char * const)name, (periodMs / portTICK_RATE_MS), autoreload?pdTRUE:pdFALSE, ctx, callback);
+	ret=xTimerCreate((const signed char * const)name, (periodMs / portTICK_PERIOD_MS), autoreload?pdTRUE:pdFALSE, ctx, callback);
 #endif
 	return ret;
 }

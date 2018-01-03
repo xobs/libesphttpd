@@ -36,6 +36,7 @@ typedef RtosConnType* ConnTypePtr;
 
 #define vTaskDelay(milliseconds) usleep((milliseconds) * 1000)
 #define portTICK_RATE_MS 1
+#define portTICK_PERIOD_MS 1
 
 typedef struct
 {
