@@ -542,13 +542,21 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
 		//Look up URL in the built-in URL table.
 		while (pInstance->builtInUrls[i].url!=NULL) {
 			const HttpdBuiltInUrl *pUrl = &(pInstance->builtInUrls[i]);
-			int match=0;
+			bool match = false;
 			const char* route = pUrl->url;
+
 			//See if there's a literal match
-			if (strcmp(route, conn->url)==0) match=1;
-			//See if there's a wildcard match
-			if (route[strlen(route)-1]=='*' &&
-					strncmp(route, conn->url, strlen(route)-1)==0) match=1;
+			if (strcmp(route, conn->url)==0)
+            {
+                match = true;
+            } else if(route[strlen(route)-1]=='*' &&
+					strncmp(route, conn->url, strlen(route)-1)==0)
+            {
+                 // See if there's a wildcard match, if the route entry ends in '*'
+                 // and everything up to the '*' is a match
+                match = true;
+            }
+
 			if (match) {
 				ESP_LOGD(TAG, "Is url index %d", i);
 				conn->cgiData=NULL;
