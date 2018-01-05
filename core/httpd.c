@@ -490,7 +490,7 @@ CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdCo
 
 	sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
 	if (sendBuff==NULL) {
-		ESP_LOGE(TAG, "Malloc of sendBuff");
+		ESP_LOGE(TAG, "Malloc of sendBuff, %d", HTTPD_MAX_SENDBUFF_LEN);
 		httpdPlatUnlock(pInstance);
 		return CallbackErrorMemory;
 	}
@@ -664,10 +664,12 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
 		} else {
 			conn->post.buffSize = conn->post.len;
 		}
+
 		ESP_LOGD(TAG, "Mallocced buffer for %d + 1 bytes of post data", conn->post.buffSize);
-		conn->post.buff=(char*)malloc(conn->post.buffSize + 1);
+        int bufferSize = conn->post.buffSize + 1;
+		conn->post.buff=(char*)malloc(bufferSize);
 		if (conn->post.buff==NULL) {
-			ESP_LOGE(TAG, "malloc failed");
+			ESP_LOGE(TAG, "malloc failed %d bytes", bufferSize);
 			return CallbackErrorMemory;
 		}
 		conn->post.buffLen=0;
@@ -701,9 +703,10 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
 CallbackStatus ICACHE_FLASH_ATTR httpdConnSendStart(HttpdInstance *pInstance, HttpdConnData *conn) {
     CallbackStatus status;
     httpdPlatLock(pInstance);
+
     char *sendBuff = malloc(HTTPD_MAX_SENDBUFF_LEN);
     if (sendBuff==NULL) {
-        ESP_LOGE(TAG, "Malloc sendBuff");
+        ESP_LOGE(TAG, "Malloc sendBuff %d", HTTPD_MAX_SENDBUFF_LEN);
         status = CallbackErrorMemory;
     } else
     {
@@ -731,7 +734,7 @@ CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, HttpdConn
 
 	char *sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
 	if (sendBuff==NULL) {
-		ESP_LOGE(TAG, "Malloc sendBuff");
+		ESP_LOGE(TAG, "Malloc sendBuff %d", HTTPD_MAX_SENDBUFF_LEN);
 		httpdPlatUnlock(pInstance);
 		return CallbackErrorMemory;
 	}
