@@ -269,6 +269,9 @@ static CgiStatus ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 	return HTTPD_CGI_DONE;
 }
 
+static const char* CHUNK_SIZE_TEXT = "0000\r\n";
+static const int CHUNK_SIZE_TEXT_LEN = 6; // number of characters in CHUNK_START
+
 //Add data to the send buffer. len is the length of the data. If len is -1
 //the data is seen as a C-string.
 //Returns 1 for success, 0 for out-of-memory.
@@ -276,13 +279,15 @@ int ICACHE_FLASH_ATTR httpdSend(HttpdConnData *conn, const char *data, int len) 
 	if (len<0) len=strlen(data);
 	if (len==0) return 0;
 	if (conn->priv.flags&HFL_CHUNKED && conn->priv.flags&HFL_SENDINGBODY && conn->priv.chunkHdr==NULL) {
-		if (conn->priv.sendBuffLen+len+6>HTTPD_MAX_SENDBUFF_LEN) return 0;
-		//Establish start of chunk
-		conn->priv.chunkHdr=&conn->priv.sendBuff[conn->priv.sendBuffLen];
-		strcpy(conn->priv.chunkHdr, "0000\r\n");
-		conn->priv.sendBuffLen+=6;
+		if (conn->priv.sendBuffLen+len+CHUNK_SIZE_TEXT_LEN > HTTPD_MAX_SENDBUFF_LEN) return 0;
+
+        // Establish start of chunk
+        // Use a chunk length placeholder of 4 characters
+		conn->priv.chunkHdr = &conn->priv.sendBuff[conn->priv.sendBuffLen];
+		strcpy(conn->priv.chunkHdr, CHUNK_SIZE_TEXT);
+		conn->priv.sendBuffLen+=CHUNK_SIZE_TEXT_LEN;
 	}
-	if (conn->priv.sendBuffLen+len>HTTPD_MAX_SENDBUFF_LEN) return 0;
+	if (conn->priv.sendBuffLen+len > HTTPD_MAX_SENDBUFF_LEN) return 0;
 	memcpy(conn->priv.sendBuff+conn->priv.sendBuffLen, data, len);
 	conn->priv.sendBuffLen+=len;
 	return 1;
@@ -369,7 +374,9 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 		//Finish chunk with cr/lf
 		httpdSend(conn, "\r\n", 2);
 		//Calculate length of chunk
-		len=((&conn->priv.sendBuff[conn->priv.sendBuffLen])-conn->priv.chunkHdr)-8;
+        // +2 is to remove the two characters written above via httpdSend(), those
+        // bytes aren't counted in the chunk length
+		len=((&conn->priv.sendBuff[conn->priv.sendBuffLen])-conn->priv.chunkHdr) - (CHUNK_SIZE_TEXT_LEN + 2);
 		//Fix up chunk header to correct value
 		conn->priv.chunkHdr[0]=httpdHexNibble(len>>12);
 		conn->priv.chunkHdr[1]=httpdHexNibble(len>>8);
