@@ -102,12 +102,6 @@ static void ICACHE_FLASH_ATTR httpdRetireConn(HttpdInstance *pInstance, HttpdCon
 	}
 #endif
 
-	if(conn->priv.sendBuff)
-	{
-		free(conn->priv.sendBuff);
-		conn->priv.sendBuff = NULL;
-	}
-
 	if (conn->post.buff)
 	{
 		free(conn->post.buff);
@@ -427,6 +421,7 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 
 void ICACHE_FLASH_ATTR httpdCgiIsDone(HttpdInstance *pInstance, HttpdConnData *conn) {
 	conn->cgi=NULL; //no need to call this anymore
+
 	if (conn->priv.flags&HFL_CHUNKED) {
 		ESP_LOGD(TAG, "cleaning up");
 		httpdFlushSendBuffer(pInstance, conn);
@@ -456,8 +451,6 @@ CallbackStatus ICACHE_FLASH_ATTR httpdSentCb(HttpdInstance *pInstance, HttpdConn
 CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * conn) {
 	int r;
 	httpdPlatLock(pInstance);
-
-	char *sendBuff;
 
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
 	if (conn->priv.sendBacklog!=NULL) {
@@ -489,13 +482,6 @@ CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdCo
 		return CallbackSuccess;
 	}
 
-	sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
-	if (sendBuff==NULL) {
-		ESP_LOGE(TAG, "Malloc of sendBuff, %d", HTTPD_MAX_SENDBUFF_LEN);
-		httpdPlatUnlock(pInstance);
-		return CallbackErrorMemory;
-	}
-	conn->priv.sendBuff=sendBuff;
 	conn->priv.sendBuffLen=0;
 	r=conn->cgi(conn); //Execute cgi fn.
 	if (r==HTTPD_CGI_DONE) {
@@ -505,8 +491,6 @@ CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdCo
 		httpdCgiIsDone(pInstance, conn);
 	}
 	httpdFlushSendBuffer(pInstance, conn);
-	free(conn->priv.sendBuff);
-	conn->priv.sendBuff = 0;
 	httpdPlatUnlock(pInstance);
 
 	return CallbackSuccess;
@@ -712,24 +696,15 @@ CallbackStatus ICACHE_FLASH_ATTR httpdConnSendStart(HttpdInstance *pInstance, Ht
     CallbackStatus status;
     httpdPlatLock(pInstance);
 
-    char *sendBuff = malloc(HTTPD_MAX_SENDBUFF_LEN);
-    if (sendBuff==NULL) {
-        ESP_LOGE(TAG, "Malloc sendBuff %d", HTTPD_MAX_SENDBUFF_LEN);
-        status = CallbackErrorMemory;
-    } else
-    {
-        conn->priv.sendBuff=sendBuff;
-        conn->priv.sendBuffLen=0;
-        status = CallbackSuccess;
-    }
+    conn->priv.sendBuffLen=0;
+    status = CallbackSuccess;
+
     return status;
 }
 
 //Finish the live-ness of a connection. Always call this after httpdConnStart
 void ICACHE_FLASH_ATTR httpdConnSendFinish(HttpdInstance *pInstance, HttpdConnData *conn) {
 	httpdFlushSendBuffer(pInstance, conn);
-	free(conn->priv.sendBuff);
-	conn->priv.sendBuff = 0;
 	httpdPlatUnlock(pInstance);
 }
 
@@ -740,13 +715,6 @@ CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, HttpdConn
 	CallbackStatus status = CallbackSuccess;
 	httpdPlatLock(pInstance);
 
-	char *sendBuff=malloc(HTTPD_MAX_SENDBUFF_LEN);
-	if (sendBuff==NULL) {
-		ESP_LOGE(TAG, "Malloc sendBuff %d", HTTPD_MAX_SENDBUFF_LEN);
-		httpdPlatUnlock(pInstance);
-		return CallbackErrorMemory;
-	}
-	conn->priv.sendBuff=sendBuff;
 	conn->priv.sendBuffLen=0;
 #ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
 	conn->priv.corsToken[0] = 0;
@@ -828,8 +796,6 @@ CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, HttpdConn
 		}
 	}
 	httpdFlushSendBuffer(pInstance, conn);
-	free(conn->priv.sendBuff);
-	conn->priv.sendBuff = 0;
 	httpdPlatUnlock(pInstance);
 
 	return status;

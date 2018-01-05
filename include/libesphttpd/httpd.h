@@ -91,7 +91,7 @@ struct HttpdPriv {
 	char corsToken[MAX_CORS_TOKEN_LEN];
 #endif
 	int headPos;
-	char *sendBuff;
+	char sendBuff[HTTPD_MAX_SENDBUFF_LEN];
 	int sendBuffLen;
 
 	/** NOTE: chunkHdr, if valid, points at memory assigned to sendBuff
