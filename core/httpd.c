@@ -175,10 +175,10 @@ int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLe
 	return -1; //not found
 }
 
-//Get the value of a certain header in the HTTP client head
-//Returns true when found, false when not found.
-int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen) {
-	char *p=conn->priv.head;
+bool ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen) {
+    bool retval = false;
+
+    char *p=conn->priv.head;
 	p=p+strlen(p)+1; //skip GET/POST part
 	p=p+strlen(p)+1; //skip HTTP part
 	while (p<(conn->priv.head+conn->priv.headPos)) {
@@ -190,18 +190,19 @@ int ICACHE_FLASH_ATTR httpdGetHeader(HttpdConnData *conn, const char *header, ch
 			//Skip past spaces after the colon
 			while(*p==' ') p++;
 			//Copy from p to end
+            // retLen check preserves one byte in ret so we can null terminate
 			while (*p!=0 && *p!='\r' && *p!='\n' && retLen>1) {
 				*ret++=*p++;
 				retLen--;
 			}
 			//Zero-terminate string
 			*ret=0;
-			//All done :)
-			return 1;
+            retval = true;
 		}
 		p+=strlen(p)+1; //Skip past end of string and \0 terminator
 	}
-	return 0;
+
+	return retval;
 }
 
 void ICACHE_FLASH_ATTR httpdSetTransferMode(HttpdConnData *conn, TransferModes mode) {

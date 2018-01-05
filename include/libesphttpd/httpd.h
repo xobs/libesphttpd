@@ -179,7 +179,17 @@ void httpdSetTransferMode(HttpdConnData *conn, TransferModes mode);
 void httpdStartResponse(HttpdConnData *conn, int code);
 void httpdHeader(HttpdConnData *conn, const char *field, const char *val);
 void httpdEndHeaders(HttpdConnData *conn);
-int httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen);
+
+/**
+ * Get the value of a certain header in the HTTP client head
+ * Returns true when found, false when not found.
+ *
+ * NOTE: 'ret' will be null terminated
+ *
+ * @param retLen is the number of bytes available in 'ret'
+ */
+bool httpdGetHeader(HttpdConnData *conn, const char *header, char *ret, int retLen);
+
 int httpdSend(HttpdConnData *conn, const char *data, int len);
 int httpdSend_js(HttpdConnData *conn, const char *data, int len);
 int httpdSend_html(HttpdConnData *conn, const char *data, int len);

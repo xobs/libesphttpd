@@ -78,7 +78,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 	EspFsFile *file=connData->cgiData;
 	int len;
 	char buff[FILE_CHUNK_LEN+1];
-	char acceptEncodingBuffer[64+1];
+	char acceptEncodingBuffer[64];
 	int isGzip;
 
 	if (connData->isConnectionClosed) {
@@ -115,8 +115,8 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		if (isGzip) {
 			// Check the browser's "Accept-Encoding" header. If the client does not
 			// advertise that he accepts GZIP send a warning message (telnet users for e.g.)
-			httpdGetHeader(connData, "Accept-Encoding", acceptEncodingBuffer, 64);
-			if (strstr(acceptEncodingBuffer, "gzip") == NULL) {
+			bool found = httpdGetHeader(connData, "Accept-Encoding", acceptEncodingBuffer, sizeof(acceptEncodingBuffer));
+			if (!found || (strstr(acceptEncodingBuffer, "gzip") == NULL)) {
 				//No Accept-Encoding: gzip header present
 				httpdSend(connData, gzipNonSupportedMessage, -1);
 				espFsClose(file);
