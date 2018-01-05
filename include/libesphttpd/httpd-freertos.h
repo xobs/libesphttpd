@@ -67,16 +67,22 @@ typedef struct
     HttpdInstance httpdInstance;
 } HttpdFreertosInstance;
 
+/*
+ * connectionBuffer should be sized 'sizeof(RtosConnType) * maxConnections'
+ */
 HttpdInitStatus httpdFreertosInit(HttpdFreertosInstance *pInstance,
                                 const HttpdBuiltInUrl *fixedUrls,
                                 int port,
-                                int maxConnections,
+                                void* connectionBuffer, int maxConnections,
                                 HttpdFlags flags);
 
-/* NOTE: listenAddress is in network byte order */
+/* NOTE: listenAddress is in network byte order
+ *
+ * connectionBuffer should be sized 'sizeof(RtosConnType) * maxConnections'
+ */
 HttpdInitStatus httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
                                     const HttpdBuiltInUrl *fixedUrls,
                                     int port,
                                     uint32_t listenAddress,
-                                    int maxConnections,
+                                    void* connectionBuffer, int maxConnections,
                                     HttpdFlags flags);

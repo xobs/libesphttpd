@@ -662,7 +662,9 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle timer) {
 //Httpd initialization routine. Call this to kick off webserver functionality.
 HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
 				const HttpdBuiltInUrl *fixedUrls, int port,
-				uint32_t listenAddress, int maxConnections, HttpdFlags flags)
+				uint32_t listenAddress,
+                void* connectionBuffer, int maxConnections,
+                HttpdFlags flags)
 {
 	HttpdInitStatus status;
     char serverStr[20];
@@ -677,10 +679,8 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 	pInstance->httpdFlags = flags;
 	pInstance->isShutdown = false;
 
-    int rconnSize = sizeof(RtosConnType) * maxConnections;
-    pInstance->rconn = malloc(rconnSize);
-	if(pInstance->rconn)
-	{
+    pInstance->rconn = connectionBuffer;
+
 	#ifdef linux
 		pthread_t thread;
 		pthread_create(&thread, NULL, platHttpServerTask, pInstance);
@@ -695,21 +695,20 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 		ESP_LOGI(TAG, "address %s, port %d, maxConnections %d, mode %s",
                 serverStr,
                 port, maxConnections, (flags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
-	} else
-	{
-        ESP_LOGE(TAG, "malloc() of %d bytes", rconnSize);
-		status = ErrorMemoryAllocation;
-	}
 
 	return status;
 }
 
 HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInstance,
-				const HttpdBuiltInUrl *fixedUrls, int port, int maxConnections, HttpdFlags flags)
+				const HttpdBuiltInUrl *fixedUrls, int port,
+                void* connectionBuffer, int maxConnections,
+                HttpdFlags flags)
 {
 	HttpdInitStatus status;
 
-	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY, maxConnections, flags);
+	status = httpdFreertosInitEx(pInstance, fixedUrls, port, INADDR_ANY,
+                    connectionBuffer, maxConnections,
+                    flags);
 	ESP_LOGI(TAG, "init");
 
 	return status;
@@ -755,9 +754,6 @@ void httpdPlatShutdown(HttpdInstance *pInstance)
 	}
 
 	close(s);
-
-	free(pFR->rconn);
-	pFR->rconn = 0;
 }
 #endif
 
