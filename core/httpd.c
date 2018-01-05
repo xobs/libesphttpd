@@ -500,9 +500,8 @@ CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdCo
 	r=conn->cgi(conn); //Execute cgi fn.
 	if (r==HTTPD_CGI_DONE) {
 		httpdCgiIsDone(pInstance, conn);
-	}
-	if (r==HTTPD_CGI_NOTFOUND || r==HTTPD_CGI_AUTHENTICATED) {
-		ESP_LOGE(TAG, "CGI fn returns code %d after sending data", r);
+	} else if(r==HTTPD_CGI_NOTFOUND || r==HTTPD_CGI_AUTHENTICATED) {
+		ESP_LOGE(TAG, "CGI fn returned %d", r);
 		httpdCgiIsDone(pInstance, conn);
 	}
 	httpdFlushSendBuffer(pInstance, conn);
