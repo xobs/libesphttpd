@@ -381,9 +381,15 @@ void ICACHE_FLASH_ATTR httpdFlushSendBuffer(HttpdInstance *pInstance, HttpdConnD
 		conn->priv.chunkHdr=NULL;
 	}
 	if (conn->priv.flags&HFL_CHUNKED && conn->priv.flags&HFL_SENDINGBODY && conn->cgi==NULL) {
-		//Connection finished sending whatever needs to be sent. Add NULL chunk to indicate this.
-		strcpy(&conn->priv.sendBuff[conn->priv.sendBuffLen], "0\r\n\r\n");
-		conn->priv.sendBuffLen+=5;
+        if(conn->priv.sendBuffLen + 5 <= HTTPD_MAX_SENDBUFF_LEN)
+        {
+            //Connection finished sending whatever needs to be sent. Add NULL chunk to indicate this.
+            strcpy(&conn->priv.sendBuff[conn->priv.sendBuffLen], "0\r\n\r\n");
+            conn->priv.sendBuffLen+=5;
+        } else
+        {
+            ESP_LOGE(TAG, "sendBuff full");
+        }
 	}
 	if (conn->priv.sendBuffLen!=0) {
 		r = httpdPlatSendData(pInstance, conn, conn->priv.sendBuff, conn->priv.sendBuffLen);
