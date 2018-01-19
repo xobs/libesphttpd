@@ -265,7 +265,7 @@ static CgiStatus ICACHE_FLASH_ATTR cgiNotFound(HttpdConnData *connData) {
 }
 
 static const char* CHUNK_SIZE_TEXT = "0000\r\n";
-static const int CHUNK_SIZE_TEXT_LEN = 6; // number of characters in CHUNK_START
+static const int CHUNK_SIZE_TEXT_LEN = 6; // number of characters in CHUNK_SIZE_TEXT
 
 //Add data to the send buffer. len is the length of the data. If len is -1
 //the data is seen as a C-string.
