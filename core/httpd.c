@@ -689,6 +689,9 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
 		ESP_LOGD(TAG, "CORS preflight request");
 
 		strncpy(conn->priv.corsToken, h+strlen("Access-Control-Request-Headers: "), MAX_CORS_TOKEN_LEN);
+
+        // ensure null termination of the token
+        conn->priv.corsToken[MAX_CORS_TOKEN_LEN-1] = 0;
 	}
 #endif
 
