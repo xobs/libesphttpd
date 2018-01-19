@@ -112,7 +112,7 @@ struct HttpdPostData {
 	int buffLen;			// The amount of bytes in the current post buffer
 	int received;			// The total amount of bytes received so far
 	char *buff;				// Actual POST data buffer
-	char *multipartBoundary; //Text of the multipart boundary, if any
+	char *multipartBoundary; // Pointer to the start of the multipart boundary value in priv.head
 };
 
 //A struct describing a http connection. This gets passed to cgi functions.

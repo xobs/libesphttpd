@@ -673,12 +673,11 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
 		conn->post.buffLen=0;
 	} else if (strncasecmp(h, "Content-Type: ", 14)==0) {
 		if (strstr(h, "multipart/form-data")) {
-			// It's multipart form data so let's pull out the boundary for future use
+            // It's multipart form data so let's pull out the boundary
+            // TODO: implement multipart support in the server
 			char *b;
 			if ((b = strstr(h, "boundary=")) != NULL) {
-				conn->post.multipartBoundary = b + 7; // move the pointer 2 chars before boundary then fill them with dashes
-				conn->post.multipartBoundary[0] = '-';
-				conn->post.multipartBoundary[1] = '-';
+				conn->post.multipartBoundary = b + 7;
 				ESP_LOGD(TAG, "boundary = %s", conn->post.multipartBoundary);
 			}
 		}
