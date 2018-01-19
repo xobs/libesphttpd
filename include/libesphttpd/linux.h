@@ -12,6 +12,7 @@ typedef int32_t int32;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include <stdint.h>
 
