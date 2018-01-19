@@ -222,7 +222,7 @@ void ICACHE_FLASH_ATTR httpdSetTransferMode(HttpdConnData *conn, TransferModes m
 
 //Start the response headers.
 void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
-    char buff[256];
+    char buff[128];
     int l;
     const char *connStr="Connection: close\r\n";
     if (conn->priv.flags&HFL_CHUNKED) connStr="Transfer-Encoding: chunked\r\n";
@@ -231,6 +231,10 @@ void ICACHE_FLASH_ATTR httpdStartResponse(HttpdConnData *conn, int code) {
                 (conn->priv.flags&HFL_HTTP11)?1:0,
                 code,
                 connStr);
+    if(l >= sizeof(buff))
+    {
+        ESP_LOGE(TAG, "buff[%zu] too small", sizeof(buff));
+    }
     httpdSend(conn, buff, l);
 
 #ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
