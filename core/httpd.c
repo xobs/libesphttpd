@@ -845,19 +845,7 @@ void ICACHE_FLASH_ATTR httpdConnectCb(HttpdInstance *pInstance, HttpdConnData *p
 	httpdPlatLock(pInstance);
 
 	memset(pConn, 0, sizeof(HttpdConnData));
-	memset(&pConn->priv, 0, sizeof(HttpdPriv));
-	pConn->priv.headPos=0;
-	memset(&pConn->post, 0, sizeof(HttpdPostData));
-	pConn->post.buff=NULL;
-	pConn->post.buffLen=0;
-	pConn->post.received=0;
 	pConn->post.len=-1;
-	pConn->hostName=NULL;
-#ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
-	pConn->priv.sendBacklog=NULL;
-	pConn->priv.sendBacklogSize=0;
-#endif
-	pConn->isConnectionClosed = false;
 
 	httpdPlatUnlock(pInstance);
 }
