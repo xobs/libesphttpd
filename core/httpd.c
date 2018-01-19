@@ -733,17 +733,34 @@ CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, HttpdConn
 	//ToDo: See if we can use something more elegant for this.
 
 	for (x=0; x<len; x++) {
-		if (conn->post.len<0) {
-			//This byte is a header byte.
-			if (data[x]=='\n') {
-				//Compatibility with clients that send \n only: fake a \r in front of this.
-				if (conn->priv.headPos!=0 && conn->priv.head[conn->priv.headPos-1]!='\r') {
-					conn->priv.head[conn->priv.headPos++]='\r';
-				}
+        if (conn->post.len<0) // This byte is a header byte
+        {
+            if (data[x]=='\n')
+            {
+                if(conn->priv.headPos < HTTPD_MAX_HEAD_LEN-1)
+                {
+                    //Compatibility with clients that send \n only: fake a \r in front of this.
+                    if (conn->priv.headPos!=0 && conn->priv.head[conn->priv.headPos-1]!='\r') {
+                        conn->priv.head[conn->priv.headPos++]='\r';
+                    }
+                } else
+                {
+                    ESP_LOGE(TAG, "adding newline request too long");
+                }
 			}
+
 			//ToDo: return http error code 431 (request header too long) if this happens
-			if (conn->priv.headPos<HTTPD_MAX_HEAD_LEN-1) conn->priv.head[conn->priv.headPos++]=data[x];
-			conn->priv.head[conn->priv.headPos]=0;
+			if (conn->priv.headPos < HTTPD_MAX_HEAD_LEN-1)
+            {
+                conn->priv.head[conn->priv.headPos++]=data[x];
+            } else
+            {
+                ESP_LOGE(TAG, "request too long!");
+            }
+
+            // always null terminate
+            conn->priv.head[conn->priv.headPos]=0;
+
 			//Scan for /r/n/r/n. Receiving this indicate the headers end.
 			if (data[x]=='\n' && (char *)strstr(conn->priv.head, "\r\n\r\n")!=NULL) {
 				//Indicate we're done with the headers.
