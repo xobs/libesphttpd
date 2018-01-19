@@ -117,14 +117,12 @@ static int ICACHE_FLASH_ATTR  httpdHexVal(char c) {
     return 0;
 }
 
-//Decode a percent-encoded value.
-//Takes the valLen bytes stored in val, and converts it into at most retLen bytes that
-//are stored in the ret buffer. Returns the actual amount of bytes used in ret. Also
-//zero-terminates the ret buffer.
-int ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLen) {
-    int s=0, d=0;
+bool ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLen, int* bytesWritten) {
+    int s=0; // index of theread position in val
+    int d=0; // index of the write position in 'ret'
     int esced=0, escVal=0;
-    while (s<valLen && d<retLen) {
+    // d loops for (retLen - 1) to ensure there is space for the null terminator
+    while (s<valLen && d < (retLen - 1)) {
         if (esced==1)  {
             escVal=httpdHexVal(val[s])<<4;
             esced=2;
@@ -141,8 +139,12 @@ int ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLe
         }
         s++;
     }
-    if (d<retLen) ret[d]=0;
-    return d;
+
+    ret[d++] = 0;
+    *bytesWritten = d;
+
+    // if s == valLen then we processed all of the input bytes
+    return (s == valLen) ? true : false;
 }
 
 //Find a specific arg in a string of get- or post-data.
@@ -160,7 +162,13 @@ int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLe
             p+=arglen+1; //move p to start of value
             e=(char*)strstr(p, "&");
             if (e==NULL) e=p+strlen(p);
-            return httpdUrlDecode(p, (e-p), buff, buffLen);
+            int bytesWritten;
+            if(!httpdUrlDecode(p, (e-p), buff, buffLen, &bytesWritten))
+            {
+                //TODO: proper error return through this code path
+                ESP_LOGE(TAG, "out of space storing url");
+            }
+            return bytesWritten;
         }
         p=(char*)strstr(p, "&");
         if (p!=NULL) p+=1;

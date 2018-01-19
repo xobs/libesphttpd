@@ -142,7 +142,13 @@ typedef struct {
 } HttpdBuiltInUrl;
 
 void httpdRedirect(HttpdConnData *conn, const char *newUrl);
-int httpdUrlDecode(char *val, int valLen, char *ret, int retLen);
+
+// Decode a percent-encoded value.
+// Takes the valLen bytes stored in val, and converts it into at most retLen bytes that
+// are stored in the ret buffer. ret is always null terminated.
+// @return True if decoding fit into the ret buffer, false if not
+bool httpdUrlDecode(char *val, int valLen, char *ret, int retLen, int* bytesWritten);
+
 int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
 
 typedef enum
