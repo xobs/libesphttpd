@@ -569,7 +569,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
             {
                 match = true;
             } else if(route[strlen(route)-1]=='*' &&
-            strncmp(route, conn->url, strlen(route)-1)==0)
+                        strncmp(route, conn->url, strlen(route)-1)==0)
             {
                 // See if there's a wildcard match, if the route entry ends in '*'
                 // and everything up to the '*' is a match
