@@ -481,6 +481,7 @@ CallbackStatus ICACHE_FLASH_ATTR httpdSentCb(HttpdInstance *pInstance, HttpdConn
 CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdConnData * conn) {
     int r;
     httpdPlatLock(pInstance);
+    CallbackStatus status = CallbackSuccess;
 
 #ifdef CONFIG_ESPHTTPD_BACKLOG_SUPPORT
     if (conn->priv.sendBacklog!=NULL) {
@@ -499,33 +500,43 @@ CallbackStatus ICACHE_FLASH_ATTR httpdContinue(HttpdInstance *pInstance, HttpdCo
     }
 #endif
 
-    if (conn->priv.flags&HFL_DISCONAFTERSENT) { //Marked for destruction?
+    if (conn->priv.flags & HFL_DISCONAFTERSENT) { //Marked for destruction?
         ESP_LOGD(TAG, "closing");
         httpdPlatDisconnect(conn);
-        httpdPlatUnlock(pInstance);
-        return CallbackSuccess; //No need to call httpdFlushSendBuffer.
+        status = CallbackSuccess;
+        // NOTE: No need to call httpdFlushSendBuffer
+    } else
+    {
+        //If we don't have a CGI function, there's nothing to do but wait for something from the client.
+        if (conn->cgi == NULL)
+        {
+            status = CallbackSuccess;
+        } else
+        {
+            conn->priv.sendBuffLen = 0;
+
+            r = conn->cgi(conn); //Execute cgi fn.
+
+            if (r==HTTPD_CGI_DONE)
+            {
+                // No special action for HTTPD_CGI_DONE
+            } else if(r==HTTPD_CGI_NOTFOUND || r==HTTPD_CGI_AUTHENTICATED)
+            {
+                ESP_LOGE(TAG, "CGI fn returned %d", r);
+            }
+
+            if((r == HTTPD_CGI_DONE) || (r == HTTPD_CGI_NOTFOUND) ||
+                (r == HTTPD_CGI_AUTHENTICATED))
+            {
+                httpdCgiIsDone(pInstance, conn);
+            }
+
+            httpdFlushSendBuffer(pInstance, conn);
+        }
     }
 
-    //If we don't have a CGI function, there's nothing to do but wait for something from the client.
-    if (conn->cgi==NULL) {
-        httpdPlatUnlock(pInstance);
-        return CallbackSuccess;
-    }
-
-    conn->priv.sendBuffLen=0;
-    r=conn->cgi(conn); //Execute cgi fn.
-    if (r==HTTPD_CGI_DONE)
-    {
-        httpdCgiIsDone(pInstance, conn);
-    } else if(r==HTTPD_CGI_NOTFOUND || r==HTTPD_CGI_AUTHENTICATED)
-    {
-        ESP_LOGE(TAG, "CGI fn returned %d", r);
-        httpdCgiIsDone(pInstance, conn);
-    }
-    httpdFlushSendBuffer(pInstance, conn);
     httpdPlatUnlock(pInstance);
-
-    return CallbackSuccess;
+    return status;
 }
 
 //This is called when the headers have been received and the connection is ready to send
