@@ -767,9 +767,9 @@ CallbackStatus ICACHE_FLASH_ATTR httpdRecvCb(HttpdInstance *pInstance, HttpdConn
     httpdPlatLock(pInstance);
 
     conn->priv.sendBuffLen=0;
-    #ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
+#ifdef CONFIG_ESPHTTPD_CORS_SUPPORT
     conn->priv.corsToken[0] = 0;
-    #endif
+#endif
 
     //This is slightly evil/dirty: we abuse conn->post.len as a state variable for where in the http communications we are:
     //<0 (-1): Post len unknown because we're still receiving headers
