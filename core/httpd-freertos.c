@@ -539,7 +539,6 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
 
         if(pRconn->fd != -1)
         {
-            //recv error,connection close
             closeConnection(pInstance, pRconn);
         }
     }
