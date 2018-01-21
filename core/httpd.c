@@ -604,11 +604,11 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
                 httpdPlatDisableTimeout(conn);
             }
             httpdFlushSendBuffer(pInstance, conn);
-            return;
+            break;
         } else if (r==HTTPD_CGI_DONE) {
             //Yep, it's happy to do so and already is done sending data.
             httpdCgiIsDone(pInstance, conn);
-            return;
+            break;
         } else if (r==HTTPD_CGI_NOTFOUND || r==HTTPD_CGI_AUTHENTICATED) {
             //URL doesn't want to handle the request: either the data isn't found or there's no
             //need to generate a login screen.
