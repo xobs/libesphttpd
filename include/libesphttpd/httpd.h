@@ -27,7 +27,7 @@
 #define HTTPD_MAX_POST_LEN		2048
 #endif
 
-//Max send buffer len. This is allocated on the stack.
+//Max send buffer len
 #ifndef HTTPD_MAX_SENDBUFF_LEN
 #define HTTPD_MAX_SENDBUFF_LEN	2048
 #endif
