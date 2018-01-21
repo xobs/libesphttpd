@@ -621,6 +621,7 @@ static void ICACHE_FLASH_ATTR httpdProcessRequest(HttpdInstance *pInstance, Http
 static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData *conn) {
     int i;
     char firstLine=0;
+    CallbackStatus status = CallbackSuccess;
 
     if (strncmp(h, "GET ", 4)==0) {
         conn->requestType = HTTPD_METHOD_GET;
@@ -697,9 +698,11 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
         conn->post.buff=(char*)malloc(bufferSize);
         if (conn->post.buff==NULL) {
             ESP_LOGE(TAG, "malloc failed %d bytes", bufferSize);
-            return CallbackErrorMemory;
+            status = CallbackErrorMemory;
+        } else
+        {
+            conn->post.buffLen=0;
         }
-        conn->post.buffLen=0;
     } else if (strncasecmp(h, "Content-Type: ", 14)==0) {
         if (strstr(h, "multipart/form-data")) {
             // It's multipart form data so let's pull out the boundary
@@ -724,7 +727,7 @@ static CallbackStatus ICACHE_FLASH_ATTR httpdParseHeader(char *h, HttpdConnData 
     }
 #endif
 
-    return CallbackSuccess;
+    return status;
 }
 
 //Make a connection 'live' so we can do all the things a cgi can do to it.
