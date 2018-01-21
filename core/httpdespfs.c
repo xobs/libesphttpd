@@ -33,18 +33,40 @@ static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nSe
  */
 static EspFsFile *tryOpenIndex_do(const char *path, const char *indexname) {
 	char fname[100];
+	EspFsFile *retval;
 	size_t url_len = strlen(path);
-	strncpy(fname, path, 99);
+	size_t index_len = strlen(indexname);
+	bool needSlash = false;
 
-	// Append slash if missing
-	if (path[url_len - 1] != '/') {
-		fname[url_len++] = '/';
+	// will we need to append a slash?
+	if(path[url_len - 1] != '/') {
+		url_len++;
+		needSlash = true;
 	}
 
-	strcpy(fname + url_len, indexname);
+	// do we have enough space to handle the input strings
+	// -1 to leave space for a trailing null
+	if((url_len + index_len) >= (sizeof(fname) - 1))
+	{
+		retval = NULL;
+		ESP_LOGE(TAG, "fname too small");
+	} else
+	{
+		strcpy(fname, path);
 
-	// Try to open, returns NULL if failed
-	return espFsOpen(fname);
+		// Append slash if missing
+		if(needSlash)
+		{
+			strcat(fname, "/");
+		}
+
+		strcat(fname, indexname);
+
+		// Try to open, returns NULL if failed
+		retval = espFsOpen(fname);
+	}
+
+	return retval;
 }
 
 /**
