@@ -305,7 +305,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
     do{
         ret = bind(listenfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (ret != 0) {
-            ESP_LOGE(TAG, "bind to address %s", serverStr);
+            ESP_LOGE(TAG, "bind to address %s:%d", serverStr, pInstance->httpPort);
             perror("bind");
             vTaskDelay(1000/portTICK_PERIOD_MS);
         }
