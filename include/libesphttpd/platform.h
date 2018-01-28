@@ -30,6 +30,7 @@ typedef xTimerHandle HttpdPlatTimerHandle;
 
 #elif defined(linux)
 
+#include <unistd.h>
 #include <stdbool.h>
 typedef struct RtosConnType RtosConnType;
 typedef RtosConnType* ConnTypePtr;
