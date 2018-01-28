@@ -60,9 +60,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 	}
 #ifdef ESP32
 	//Doesn't matter, we have a MMU to remap memory, so we only have one firmware image.
-	uint8 id = 0;
+	uint8_t id = 0;
 #else
-	uint8 id = system_upgrade_userbin_check();
+	uint8_t id = system_upgrade_userbin_check();
 #endif
 	httpdStartResponse(connData, 200);
 	httpdHeader(connData, "Content-Type", "text/plain");
