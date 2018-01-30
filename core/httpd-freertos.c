@@ -48,7 +48,9 @@ const static char* TAG = "httpd-freertos";
 
 int ICACHE_FLASH_ATTR httpdPlatSendData(HttpdInstance *pInstance, HttpdConnData *pConn, char *buff, int len) {
     int bytesWritten;
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
     HttpdFreertosInstance *pFR = fr_of_instance(pInstance);
+#endif
     RtosConnType *pRconn = frconn_of_conn(pConn);
     pRconn->needWriteDoneNotif=1;
 
