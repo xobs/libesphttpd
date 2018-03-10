@@ -324,7 +324,7 @@ static void captdnsTask(void *pvParameters) {
 
 void captdnsInit(void) {
 #ifdef ESP32
-	xTaskCreate(captdnsTask, (const char *)"captdns_task", 2900, NULL, 3, NULL);
+	xTaskCreate(captdnsTask, (const char *)"captdns_task", 3000, NULL, 3, NULL);
 #else
 	xTaskCreate(captdnsTask, (const signed char *)"captdns_task", 1200, NULL, 3, NULL);
 #endif
