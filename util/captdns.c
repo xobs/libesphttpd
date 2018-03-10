@@ -189,7 +189,9 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 	//Some sanity checks:
 	if (length>DNS_LEN) return; 								//Packet is longer than DNS implementation allows
 	if (length<sizeof(DnsHeader)) return; 						//Packet is too short
-	if (hdr->ancount || hdr->nscount || hdr->arcount) return;	//this is a reply, don't know what to do with it
+    // NOTE: We are ok if hdr->arcount is non-zero as these could be extension
+    // records, but we don't process them
+    if (hdr->ancount || hdr->nscount) return;	//this is a reply, don't know what to do with it
 	if (hdr->flags&FLAG_TC) return;								//truncated, can't use this
 	//Reply is basically the request plus the needed data
 	memcpy(reply, pusrdata, length);
