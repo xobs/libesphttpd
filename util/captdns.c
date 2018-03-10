@@ -186,13 +186,31 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 	p+=sizeof(DnsHeader);
     ESP_LOGD(TAG, "DNS packet: id 0x%X flags 0x%X rcode 0x%X qcnt %d ancnt %d nscount %d arcount %d len %d",
 		ntohs(hdr->id), hdr->flags, hdr->rcode, ntohs(hdr->qdcount), ntohs(hdr->ancount), ntohs(hdr->nscount), ntohs(hdr->arcount), length);
-	//Some sanity checks:
-	if (length>DNS_LEN) return; 								//Packet is longer than DNS implementation allows
-	if (length<sizeof(DnsHeader)) return; 						//Packet is too short
+    //Some sanity checks:
+    if (length>DNS_LEN) // Packet is longer than DNS implementation allows
+    {
+        ESP_LOGD(TAG, "Packet length %d longer than DNS_LEN(%d)", length, DNS_LEN);
+        return;
+    }
+	if (length<sizeof(DnsHeader)) // Packet is too short
+    {
+        ESP_LOGD(TAG, "Packet length %d shorter than %d", length, sizeof(DnsHeader));
+        return;
+    }
     // NOTE: We are ok if hdr->arcount is non-zero as these could be extension
     // records, but we don't process them
-    if (hdr->ancount || hdr->nscount) return;	//this is a reply, don't know what to do with it
-	if (hdr->flags&FLAG_TC) return;								//truncated, can't use this
+	if (hdr->ancount || hdr->nscount) //this is a reply, don't know what to do with it
+    {
+        ESP_LOGD(TAG, "Ignoring reply");
+        return;
+    }
+
+    if (hdr->flags&FLAG_TC) //truncated, can't use this
+    {
+        ESP_LOGD(TAG, "Message truncated");
+        return;
+    }
+
 	//Reply is basically the request plus the needed data
 	memcpy(reply, pusrdata, length);
 	rhdr->flags|=FLAG_QR;
