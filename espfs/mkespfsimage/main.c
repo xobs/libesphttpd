@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
 	int rate;
 	int err=0;
 	int compType;  //default compression type - heatshrink
-	int compLvl=-1;
+	int compLvl = Z_BEST_COMPRESSION;
 
 #ifdef __MINGW32__
 	setmode(fileno(stdout), O_BINARY);
