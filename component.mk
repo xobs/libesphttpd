@@ -16,6 +16,7 @@ COMPONENT_ADD_LDFLAGS := -lwebpages-espfs -llibesphttpd
 COMPONENT_EXTRA_CLEAN := mkespfsimage/*
 
 HTMLDIR := $(subst ",,$(CONFIG_ESPHTTPD_HTMLDIR))
+HTMLFILES := $(shell find $(PROJECT_PATH)/$(HTMLDIR) | sed -E 's/([[:space:]])/\\\1/g')
 
 JS_MINIFY_TOOL ?= uglifyjs
 CFLAGS += -DFREERTOS -DESPFS_HEATSHRINK
@@ -30,7 +31,7 @@ liblibesphttpd.a: libwebpages-espfs.a
 
 # mkespfsimage will compress html, css, svg and js files with gzip by default if enabled
 # override with -g cmdline parameter
-webpages.espfs: $(PROJECT_PATH)/$(HTMLDIR) mkespfsimage/mkespfsimage
+webpages.espfs: $(HTMLFILES) mkespfsimage/mkespfsimage
 ifeq ("$(CONFIG_ESPHTTPD_USEUGLIFYJS)","y")
 	echo "Using uglifyjs"
 	rm -rf html_compressed;
