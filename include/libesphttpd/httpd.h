@@ -148,9 +148,9 @@ void httpdRedirect(HttpdConnData *conn, const char *newUrl);
 // Takes the valLen bytes stored in val, and converts it into at most retLen bytes that
 // are stored in the ret buffer. ret is always null terminated.
 // @return True if decoding fit into the ret buffer, false if not
-bool httpdUrlDecode(char *val, int valLen, char *ret, int retLen, int* bytesWritten);
+bool httpdUrlDecode(const char *val, int valLen, char *ret, int retLen, int* bytesWritten);
 
-int httpdFindArg(char *line, char *arg, char *buff, int buffLen);
+int httpdFindArg(const char *line, const char *arg, char *buff, int buffLen);
 
 typedef enum
 {

@@ -117,7 +117,7 @@ static int ICACHE_FLASH_ATTR  httpdHexVal(char c) {
     return 0;
 }
 
-bool ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retLen, int* bytesWritten) {
+bool ICACHE_FLASH_ATTR httpdUrlDecode(const char *val, int valLen, char *ret, int retLen, int* bytesWritten) {
     int s=0; // index of theread position in val
     int d=0; // index of the write position in 'ret'
     int esced=0, escVal=0;
@@ -152,8 +152,8 @@ bool ICACHE_FLASH_ATTR httpdUrlDecode(char *val, int valLen, char *ret, int retL
 //zero-terminated result is written in buff, with at most buffLen bytes used. The
 //function returns the length of the result, or -1 if the value wasn't found. The
 //returned string will be urldecoded already.
-int ICACHE_FLASH_ATTR httpdFindArg(char *line, char *arg, char *buff, int buffLen) {
-    char *p, *e;
+int ICACHE_FLASH_ATTR httpdFindArg(const char *line, const char *arg, char *buff, int buffLen) {
+    const char *p, *e;
     if (line==NULL) return -1;
     const int arglen = strlen(arg);
     p=line;
