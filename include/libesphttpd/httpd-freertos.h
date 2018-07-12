@@ -86,3 +86,8 @@ HttpdInitStatus httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
                                     uint32_t listenAddress,
                                     void* connectionBuffer, int maxConnections,
                                     HttpdFlags flags);
+
+/**
+ * Call to start the server
+ */
+void httpdFreertosStart(HttpdFreertosInstance *pInstance);

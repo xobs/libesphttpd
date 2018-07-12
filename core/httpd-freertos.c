@@ -694,23 +694,6 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInitEx(HttpdFreertosInstance *pIn
 
     pInstance->rconn = connectionBuffer;
 
-#ifdef linux
-    pthread_t thread;
-    pthread_create(&thread, NULL, platHttpServerTask, pInstance);
-#else
-#ifdef ESP32
-#ifndef CONFIG_ESPHTTPD_PROC_CORE
-#define CONFIG_ESPHTTPD_PROC_CORE   tskNO_AFFINITY
-#endif
-#ifndef CONFIG_ESPHTTPD_PROC_PRI
-#define CONFIG_ESPHTTPD_PROC_PRI    4
-#endif
-    xTaskCreatePinnedToCore(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, pInstance, CONFIG_ESPHTTPD_PROC_PRI, NULL, CONFIG_ESPHTTPD_PROC_CORE);
-#else
-    xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
-#endif
-#endif
-
     ESP_LOGI(TAG, "address %s, port %d, maxConnections %d, mode %s",
             serverStr,
             port, maxConnections, (flags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
@@ -731,6 +714,30 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInst
     ESP_LOGI(TAG, "init");
 
     return status;
+}
+
+void ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)
+{
+#ifdef linux
+    pthread_t thread;
+    pthread_create(&thread, NULL, platHttpServerTask, pInstance);
+#else
+#ifdef ESP32
+#ifndef CONFIG_ESPHTTPD_PROC_CORE
+#define CONFIG_ESPHTTPD_PROC_CORE   tskNO_AFFINITY
+#endif
+#ifndef CONFIG_ESPHTTPD_PROC_PRI
+#define CONFIG_ESPHTTPD_PROC_PRI    4
+#endif
+    xTaskCreatePinnedToCore(platHttpServerTask, (const char *)"esphttpd", HTTPD_STACKSIZE, pInstance, CONFIG_ESPHTTPD_PROC_PRI, NULL, CONFIG_ESPHTTPD_PROC_CORE);
+#else
+    xTaskCreate(platHttpServerTask, (const signed char *)"esphttpd", HTTPD_STACKSIZE, pInstance, 4, NULL);
+#endif
+#endif
+
+    ESP_LOGI(TAG, "starting server on port port %d, maxConnections %d, mode %s",
+            pInstance->httpPort, pInstance->httpdInstance.maxConnections,
+            (pInstance->httpdFlags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
 }
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
