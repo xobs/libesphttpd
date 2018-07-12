@@ -164,7 +164,8 @@ typedef enum
 
 typedef enum
 {
-	InitializationSuccess
+	InitializationSuccess,
+	InitializationFailure
 } HttpdInitStatus;
 
 /** Common elements to the core server code */

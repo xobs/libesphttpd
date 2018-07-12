@@ -87,7 +87,28 @@ HttpdInitStatus httpdFreertosInitEx(HttpdFreertosInstance *pInstance,
                                     void* connectionBuffer, int maxConnections,
                                     HttpdFlags flags);
 
+
+typedef enum
+{
+	StartSuccess,
+	StartFailedSslNotConfigured
+} HttpdStartStatus;
+
 /**
  * Call to start the server
  */
-void httpdFreertosStart(HttpdFreertosInstance *pInstance);
+HttpdStartStatus httpdFreertosStart(HttpdFreertosInstance *pInstance);
+
+typedef enum
+{
+    SslInitSuccess,
+    SslInitContextCreationFailed
+} SslInitStatus;
+
+/**
+ * Configure SSL
+ *
+ * NOTE: Must be called before starting the server if SSL mode is enabled
+ * NOTE: Must be called again after each call to httpdShutdown()
+ */
+SslInitStatus httpdFreertosSslInit(HttpdFreertosInstance *pInstance);

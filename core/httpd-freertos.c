@@ -270,20 +270,6 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
     char serverStr[20];
     inet_ntop(AF_INET, &(server_addr.sin_addr), serverStr, sizeof(serverStr));
 
-#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-    int ssl_error;
-
-    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
-    {
-        pInstance->ctx = sslCreateContext();
-        if(!pInstance->ctx)
-        {
-            ESP_LOGE(TAG, "create ssl context");
-            PLAT_TASK_EXIT;
-        }
-    }
-#endif
-
     /* Create socket for incoming connections */
     do{
         listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -429,7 +415,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
                     ESP_LOGD(TAG, "SSL server accept client .....");
                     ret = SSL_accept(pRconn->ssl);
                     if (!ret) {
-                        ssl_error = SSL_get_error(pRconn->ssl, ret);
+                        int ssl_error = SSL_get_error(pRconn->ssl, ret);
                         ESP_LOGE(TAG, "SSL_accept %d", ssl_error);
                         close(remotefd);
                         SSL_free(pRconn->ssl);
@@ -492,7 +478,7 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
 
                             if(ret <= 0)
                             {
-                                ssl_error = SSL_get_error(pRconn->ssl, ret);
+                                int ssl_error = SSL_get_error(pRconn->ssl, ret);
                                 if(ssl_error != SSL_ERROR_NONE)
                                 {
                                     ESP_LOGE(TAG, "ssl_error %d, ret %d, bytesStillAvailable %d", ssl_error, ret, bytesStillAvailable);
@@ -550,13 +536,6 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
             closeConnection(pInstance, pRconn);
         }
     }
-
-#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
-    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
-    {
-        SSL_CTX_free(pInstance->ctx);
-    }
-#endif
 
     ESP_LOGI(TAG, "httpd on %s exiting", serverStr);
     pInstance->isShutdown = true;
@@ -716,8 +695,35 @@ HttpdInitStatus ICACHE_FLASH_ATTR httpdFreertosInit(HttpdFreertosInstance *pInst
     return status;
 }
 
-void ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)
+SslInitStatus ICACHE_FLASH_ATTR httpdFreertosSslInit(HttpdFreertosInstance *pInstance)
 {
+    SslInitStatus status = SslInitSuccess;
+
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
+    {
+        pInstance->ctx = sslCreateContext();
+        if(!pInstance->ctx)
+        {
+            ESP_LOGE(TAG, "create ssl context");
+            status = StartFailedSslNotConfigured;
+        }
+    }
+#endif
+
+    return status;
+}
+
+HttpdStartStatus ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)
+{
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+    if((pInstance->httpdFlags & HTTPD_FLAG_SSL) && !pInstance->ctx)
+    {
+        ESP_LOGE(TAG, "StartFailedSslNotConfigured");
+        return StartFailedSslNotConfigured;
+    }
+#endif
+
 #ifdef linux
     pthread_t thread;
     pthread_create(&thread, NULL, platHttpServerTask, pInstance);
@@ -738,6 +744,8 @@ void ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)
     ESP_LOGI(TAG, "starting server on port port %d, maxConnections %d, mode %s",
             pInstance->httpPort, pInstance->httpdInstance.maxConnections,
             (pInstance->httpdFlags & HTTPD_FLAG_SSL) ? "ssl" : "non-ssl");
+
+    return StartSuccess;
 }
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
@@ -778,6 +786,13 @@ void httpdPlatShutdown(HttpdInstance *pInstance)
             vTaskDelay(200 / portTICK_PERIOD_MS);
         }
     }
+
+#ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
+    if(pFR->httpdFlags & HTTPD_FLAG_SSL)
+    {
+        SSL_CTX_free(pFR->ctx);
+    }
+#endif
 
     close(s);
 }
