@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "esp.h"
 
 /**
@@ -219,6 +223,10 @@ void httpdConnectCb(HttpdInstance *pInstance, HttpdConnData *pConn);
 
 #ifdef CONFIG_ESPHTTPD_SHUTDOWN_SUPPORT
 void httpdShutdown(HttpdInstance *pInstance);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
