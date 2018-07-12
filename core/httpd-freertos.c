@@ -493,7 +493,13 @@ static PLAT_RETURN platHttpServerTask(void *pvParameters)
                             if(ret <= 0)
                             {
                                 ssl_error = SSL_get_error(pRconn->ssl, ret);
-                                ESP_LOGE(TAG, "ssl_error %d, ret %d, bytesStillAvailable %d", ssl_error, ret, bytesStillAvailable);
+                                if(ssl_error != SSL_ERROR_NONE)
+                                {
+                                    ESP_LOGE(TAG, "ssl_error %d, ret %d, bytesStillAvailable %d", ssl_error, ret, bytesStillAvailable);
+                                } else
+                                {
+                                    ESP_LOGD(TAG, "ssl_error %d, ret %d, bytesStillAvailable %d", ssl_error, ret, bytesStillAvailable);
+                                }
                             }
 
                             if (ret > 0) {
