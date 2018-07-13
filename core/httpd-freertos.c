@@ -723,6 +723,35 @@ void ICACHE_FLASH_ATTR httpdFreertosSslSetCertificateAndKey(HttpdFreertosInstanc
     }
 }
 
+void ICACHE_FLASH_ATTR httpdFreertosSslSetClientValidation(HttpdFreertosInstance *pInstance,
+                                         SslClientVerifySetting verifySetting)
+{
+    int flags;
+
+    if(verifySetting == SslClientVerifyRequired)
+    {
+        flags = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+    } else
+    {
+        flags = SSL_VERIFY_NONE;
+    }
+
+    // NOTE: esp32's openssl wraper isn't using the function callback parameter, the last
+    // parameter passed.
+    SSL_CTX_set_verify(pInstance->ctx, flags, 0);
+}
+
+void ICACHE_FLASH_ATTR httpdFreertosSslAddClientCertificate(HttpdFreertosInstance *pInstance,
+                                          const void *certificate, size_t certificate_size)
+{
+    X509 *client_cacert = d2i_X509(NULL, certificate, certificate_size);
+    int rv = SSL_CTX_add_client_CA(pInstance->ctx, client_cacert);
+    if(rv == 0)
+    {
+        ESP_LOGE(TAG, "SSL_CTX_add_client_CA failed");
+    }
+}
+
 HttpdStartStatus ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)
 {
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT

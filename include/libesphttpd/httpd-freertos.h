@@ -121,3 +121,25 @@ SslInitStatus httpdFreertosSslInit(HttpdFreertosInstance *pInstance);
 void httpdFreertosSslSetCertificateAndKey(HttpdFreertosInstance *pInstance,
                                         const void *certificate, size_t certificate_size,
                                         const void *private_key, size_t private_key_size);
+
+typedef enum
+{
+    SslClientVerifyNone,
+    SslClientVerifyRequired
+} SslClientVerifySetting;
+
+/**
+ * Enable / disable client certificate verification
+ *
+ * NOTE: Ssl defaults to SslClientVerifyNone
+ */
+void httpdFreertosSslSetClientValidation(HttpdFreertosInstance *pInstance,
+                                         SslClientVerifySetting verifySetting);
+
+/**
+ * Add a client certificate (in DER format)
+ *
+ * NOTE: Should use httpdFreertosSslSetClientValidation() to enable validation
+ */
+void httpdFreertosSslAddClientCertificate(HttpdFreertosInstance *pInstance,
+                                          const void *certificate, size_t certificate_size);
