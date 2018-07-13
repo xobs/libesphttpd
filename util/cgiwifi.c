@@ -513,7 +513,7 @@ int ICACHE_FLASH_ATTR tplWlan(HttpdConnData *connData, char *token, void **arg) 
 	wifi_station_get_config(&stconf);
 #else
 	wifi_ap_record_t stconf;
-	esp_err_t st = esp_wifi_sta_get_ap_info(&stconf);
+	esp_wifi_sta_get_ap_info(&stconf);
 #endif
 	strcpy(buff, "Unknown");
 	if (strcmp(token, "WiFiMode")==0) {
