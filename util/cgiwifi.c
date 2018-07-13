@@ -340,7 +340,6 @@ static void ICACHE_FLASH_ATTR reassTimerCb(void *arg) {
 // ESP32
 wifi_config_t wifi_config;
 static void ICACHE_FLASH_ATTR startSta() {
-	esp_wifi_set_auto_connect(1);
 	esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
 	esp_wifi_set_mode(WIFI_MODE_APSTA);
 	ESP_ERROR_CHECK( esp_wifi_connect());
