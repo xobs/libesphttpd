@@ -138,56 +138,54 @@ void closeConnection(HttpdFreertosInstance *pInstance, RtosConnType *rconn)
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT
 static SSL_CTX* sslCreateContext()
 {
-    int ret;
     SSL_CTX *ctx = NULL;
-
-    extern const unsigned char cacert_der_start[] asm("_binary_cacert_der_start");
-    extern const unsigned char cacert_der_end[]   asm("_binary_cacert_der_end");
-    const unsigned int cacert_der_bytes = cacert_der_end - cacert_der_start;
-
-    extern const unsigned char prvtkey_der_start[] asm("_binary_prvtkey_der_start");
-    extern const unsigned char prvtkey_der_end[]   asm("_binary_prvtkey_der_end");
-    const unsigned int prvtkey_der_bytes = prvtkey_der_end - prvtkey_der_start;
 
     ESP_LOGI(TAG, "SSL server context create ......");
 
     ctx = SSL_CTX_new(TLS_server_method());
     if (!ctx) {
         ESP_LOGE(TAG, "SSL_CXT_new");
-        goto failed1;
+    } else
+    {
+        ESP_LOGI(TAG, "OK");
     }
-    ESP_LOGI(TAG, "OK");
+
+    return ctx;
+}
+
+/**
+ * @return true if successful, false otherwise
+ */
+static bool sslSetDerCertificateAndKey(HttpdFreertosInstance *pInstance,
+                                        const void *certificate, size_t certificate_size,
+                                        const void *private_key, size_t private_key_size)
+{
+    bool status = true;
 
     ESP_LOGI(TAG, "SSL server context setting ca certificate......");
-    ret = SSL_CTX_use_certificate_ASN1(ctx, cacert_der_bytes, cacert_der_start);
+    int ret = SSL_CTX_use_certificate_ASN1(pInstance->ctx, certificate_size, certificate);
     if (!ret) {
 #ifdef linux
         ERR_print_errors_fp(stderr);
 #endif
         ESP_LOGE(TAG, "SSL_CTX_use_certificate_ASN1 %d", ret);
-        goto failed2;
+        status = false;
     }
     ESP_LOGI(TAG, "OK");
 
     ESP_LOGI(TAG, "SSL server context setting private key......");
-    ret = SSL_CTX_use_RSAPrivateKey_ASN1(ctx, prvtkey_der_start, prvtkey_der_bytes);
+    ret = SSL_CTX_use_RSAPrivateKey_ASN1(pInstance->ctx, private_key, private_key_size);
     if (!ret) {
 #ifdef linux
         ERR_print_errors_fp(stderr);
 #endif
         ESP_LOGE(TAG, "SSL_CTX_use_RSAPrivateKey_ASN1 %d", ret);
-        goto failed2;
+        status = false;
     }
 
-    return ctx;
-
-    failed2:
-    ESP_LOGE(TAG, "failed");
-    SSL_CTX_free(ctx);
-    ctx = NULL;
-    failed1:
-    return ctx;
+    return status;
 }
+
 #endif
 
 #ifdef linux
@@ -712,6 +710,17 @@ SslInitStatus ICACHE_FLASH_ATTR httpdFreertosSslInit(HttpdFreertosInstance *pIns
 #endif
 
     return status;
+}
+
+void ICACHE_FLASH_ATTR httpdFreertosSslSetCertificateAndKey(HttpdFreertosInstance *pInstance,
+                                        const void *certificate, size_t certificate_size,
+                                        const void *private_key, size_t private_key_size)
+{
+    if(!sslSetDerCertificateAndKey(pInstance, certificate, certificate_size,
+                        private_key, private_key_size))
+    {
+        ESP_LOGE(TAG, "sslSetDerCertificate");
+    }
 }
 
 HttpdStartStatus ICACHE_FLASH_ATTR httpdFreertosStart(HttpdFreertosInstance *pInstance)

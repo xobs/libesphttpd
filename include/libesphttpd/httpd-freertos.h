@@ -112,3 +112,12 @@ typedef enum
  * NOTE: Must be called again after each call to httpdShutdown()
  */
 SslInitStatus httpdFreertosSslInit(HttpdFreertosInstance *pInstance);
+
+/**
+ * Set the ssl certificate and private key (in DER format)
+ *
+ * NOTE: Must be called before starting the server if SSL mode is enabled
+ */
+void httpdFreertosSslSetCertificateAndKey(HttpdFreertosInstance *pInstance,
+                                        const void *certificate, size_t certificate_size,
+                                        const void *private_key, size_t private_key_size);
