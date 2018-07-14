@@ -20,11 +20,11 @@ entry under 'Component config' when you run 'make menuconfig' on your esp-idf ap
 
 # SSL Support
 
-Libesphttpd supports https under FreeRTOS via openssl/mbedtls.
+Libesphttpd supports https under FreeRTOS via openssl/mbedtls. Server and client certificates are supported.
 
-Enable 'ESPHTTPD_SSL_SUPPORT' during project configuration. Note the instructions on including the CA
-certificate and private key in your project build as the build will fail without the appropriately
-named files and SSL initialization will fail if the files are not in the correct format.
+Enable 'ESPHTTPD_SSL_SUPPORT' during project configuration.
+
+See the 'How to use SSL' section below.
 
 # Programming guide
 
@@ -131,6 +131,63 @@ configured to do either.
 The espfs code comes with a small but efficient template routine, which can fill a template file stored on
 the espfs filesystem with user-defined data.
 
+## How to configure and use SSL
+
+### How to create certificates
+
+	SSL servers require certificates. Steps to use:
+	- Place a 'cacert.der' and 'prvtkey.der' files in your app directory.
+
+	- To create self certified certificates:
+		$ openssl req -sha256 -newkey rsa:4096 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
+
+	- To generate .der certificates/keys from .pem certificates/keys:
+		$ openssl x509 -outform der -in certificate.pem -out certificate.der
+		$ openssl rsa -outform der -in key.pem -out key.der
+
+### Compile certificates into your binary image (option 1) OR
+	- Create a 'component.mk' file in your app directory and add these lines to it:
+		COMPONENT_EMBED_TXTFILES := cacert.der
+		COMPONENT_EMBED_TXTFILES += prvtkey.der
+
+And use the below code to gain access to these embedded files. Note the filename with extension is used to generate the binary variables, you can modify the embedded filenames but make sure to update the _binary_xxxx_yyy_start and end entries:
+
+```c
+extern const unsigned char cacert_der_start[] asm("_binary_cacert_der_start");
+extern const unsigned char cacert_der_end[]   asm("_binary_cacert_der_end");
+const size_t cacert_der_bytes = cacert_der_end - cacert_der_start;
+
+extern const unsigned char prvtkey_der_start[] asm("_binary_prvtkey_der_start");
+extern const unsigned char prvtkey_der_end[]   asm("_binary_prvtkey_der_end");
+const size_t prvtkey_der_bytes = prvtkey_der_end - prvtkey_der_start;
+```
+
+### Store / load certificates to a filesystem (option 2)
+See the mkspiffs documentation for more information on creating a spiffs filesystem and loading it at runtime.
+
+Otherwise use standard file functions, fopen/fread/fclose to read the certiricates into memory so they can be passed into libesphttpd.
+
+### Configure libesphttpd for ssl and load the server certificate and private key
+```c
+    httpdFreertosSslInit(&httpdFreertosInstance); // configure libesphttpd for ssl
+
+    // load the server certificate and private key
+    httpdFreertosSslSetCertificateAndKey(&httpdFreertosInstance,
+                                        cacert_der_ptr, cacert_der_size,
+                                        prvtkey_der_ptr, prvtkey_der_size);
+```
+
+### Optionally enable client certificate validation (client certificate validation is disabled by default) and load a series of client certificates
+
+You can embed client certificates into the flash image or store them in a filesystem depending on your need.
+
+```c
+    SslVerifySetting verifySetting = SslClientVerifyRequired;
+    httpdFreertosSslSetClientValidation(&httpdFreertosInstance,
+                                        verifySetting);
+    httpdFreertosSslAddClientCertificate(&httpdFreertosInstance,
+                                         client_certificate_ptr, client_certificate_size);
+```
 
 ## Writing a CGI function
 
