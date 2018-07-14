@@ -716,10 +716,22 @@ void ICACHE_FLASH_ATTR httpdFreertosSslSetCertificateAndKey(HttpdFreertosInstanc
                                         const void *certificate, size_t certificate_size,
                                         const void *private_key, size_t private_key_size)
 {
-    if(!sslSetDerCertificateAndKey(pInstance, certificate, certificate_size,
-                        private_key, private_key_size))
+    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
     {
-        ESP_LOGE(TAG, "sslSetDerCertificate");
+        if(pInstance->ctx)
+        {
+            if(!sslSetDerCertificateAndKey(pInstance, certificate, certificate_size,
+                                private_key, private_key_size))
+            {
+                ESP_LOGE(TAG, "sslSetDerCertificate");
+            }
+        } else
+        {
+            ESP_LOGE(TAG, "Call httpdFreertosSslInit() first");
+        }
+    } else
+    {
+        ESP_LOGE(TAG, "Server not initialized for ssl");
     }
 }
 
@@ -728,17 +740,29 @@ void ICACHE_FLASH_ATTR httpdFreertosSslSetClientValidation(HttpdFreertosInstance
 {
     int flags;
 
-    if(verifySetting == SslClientVerifyRequired)
+    if(pInstance->httpdFlags & HTTPD_FLAG_SSL)
     {
-        flags = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        if(pInstance->ctx)
+        {
+            if(verifySetting == SslClientVerifyRequired)
+            {
+                flags = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+            } else
+            {
+                flags = SSL_VERIFY_NONE;
+            }
+
+            // NOTE: esp32's openssl wraper isn't using the function callback parameter, the last
+            // parameter passed.
+            SSL_CTX_set_verify(pInstance->ctx, flags, 0);
+        } else
+        {
+            ESP_LOGE(TAG, "Call httpdFreertosSslInit() first");
+        }
     } else
     {
-        flags = SSL_VERIFY_NONE;
+        ESP_LOGE(TAG, "Server not initialized for ssl");
     }
-
-    // NOTE: esp32's openssl wraper isn't using the function callback parameter, the last
-    // parameter passed.
-    SSL_CTX_set_verify(pInstance->ctx, flags, 0);
 }
 
 void ICACHE_FLASH_ATTR httpdFreertosSslAddClientCertificate(HttpdFreertosInstance *pInstance,
