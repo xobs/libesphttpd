@@ -19,9 +19,6 @@ static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nSe
 
 static const int MAX_FILENAME_LENGTH = 1024;
 
-//This is a catch-all cgi function. It takes the url passed to it, looks up the corresponding
-//path in the filesystem and if it exists, passes the file through. This simulates what a normal
-//webserver would do with static files.
 CgiStatus ICACHE_FLASH_ATTR cgiEspVfsHook(HttpdConnData *connData) {
 	FILE *file=connData->cgiData;
 	int len;
@@ -52,7 +49,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsHook(HttpdConnData *connData) {
 				strncat(filename, "/index.html", MAX_FILENAME_LENGTH - strlen(filename));
 			}
 		}
-		
+
 		file = fopen(filename, "r");
 		isGzip = 0;
 		
