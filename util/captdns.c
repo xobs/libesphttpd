@@ -220,7 +220,7 @@ static void ICACHE_FLASH_ATTR captdnsRecv(struct sockaddr_in *premote_addr, char
 		if (p==NULL) return;
 		DnsQuestionFooter *qf=(DnsQuestionFooter*)p;
 		p+=sizeof(DnsQuestionFooter);
-		ESP_LOGI(TAG, "DNS: Q (type 0x%X class 0x%X) for %s", ntohs(qf->type), ntohs(qf->class), buff);
+		ESP_LOGD(TAG, "DNS: Q (type 0x%X class 0x%X) for %s", ntohs(qf->type), ntohs(qf->class), buff);
 		if (ntohs(qf->type)==QTYPE_A) {
 			//They want to know the IPv4 address of something.
 			//Build the response.
