@@ -9,3 +9,7 @@ espfs/espfstest/espfstest
 html_compressed/
 libwebpages-espfs.a
 *.swp
+standalone/CMakeCache.txt
+standalone/CMakeFiles/
+standalone/Makefile
+standalone/cmake_install.cmake

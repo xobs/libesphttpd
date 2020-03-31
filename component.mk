@@ -7,12 +7,8 @@
 # please read the SDK documents if you need to do this.
 #
 
-ifdef CONFIG_ESPHTTPD_ENABLED
-
 COMPONENT_SRCDIRS := core util
 COMPONENT_ADD_INCLUDEDIRS := core util include
 COMPONENT_ADD_LDFLAGS := -llibesphttpd
 
 CFLAGS += -DFREERTOS
-
-endif
