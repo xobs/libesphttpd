@@ -116,14 +116,14 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		return HTTPD_CGI_DONE;
 	}
 
-	// invalid call.
-	if (filepath == NULL) {
-		ESP_LOGE(TAG, "serveStaticFile called with NULL path");
-		return HTTPD_CGI_NOTFOUND;
-	}
-
 	//First call to this cgi.
 	if (file==NULL) {
+		// invalid call.
+		if (filepath == NULL) {
+			ESP_LOGE(TAG, "serveStaticFile called with NULL path");
+			return HTTPD_CGI_NOTFOUND;
+		}
+
 		//First call to this cgi. Open the file so we can read it.
 		file = espFsOpen(espfs, filepath);
 		if (file == NULL) {
@@ -155,11 +155,45 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 
 		connData->cgiData=file;
 		httpdStartResponse(connData, 200);
-		httpdHeader(connData, "Content-Type", httpdGetMimetype(filepath));
+
+		const char *mimetype = NULL;
+		bool sendContentType = false;
+		bool sentHeaders = false;
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->mimetype) {
+				mimetype = ex->mimetype;
+				sendContentType = true;
+			} else if (!ex->headerCb) {
+				sendContentType = true;
+			}
+		} else {
+			sendContentType = true;
+		}
+
+		if (sendContentType) {
+			if (!mimetype) {
+				mimetype = httpdGetMimetype(connData->url);
+			}
+			httpdHeader(connData, "Content-Type", mimetype);
+		}
+
 		if (isGzip) {
 			httpdHeader(connData, "Content-Encoding", "gzip");
 		}
-		httpdHeader(connData, "Cache-Control", "max-age=3600, must-revalidate");
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->headerCb) {
+				ex->headerCb(connData);
+				sentHeaders = true;
+			}
+		}
+
+		if (!sentHeaders) {
+			httpdHeader(connData, "Cache-Control", "max-age=3600, must-revalidate");
+		}
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_MORE;
 	}
@@ -177,11 +211,67 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 }
 
 
+static size_t getFilepath(HttpdConnData *connData, char *filepath, size_t len)
+{
+	EspFsStat s;
+	int outlen;
+	if (!espfs)
+	{
+		ESP_LOGE(TAG, "espfs not registered");
+		return NULL;
+	}
+	if (connData->cgiArg != &httpdCgiEx) {
+		filepath[0] = '\0';
+		if (connData->cgiArg != NULL) {
+			outlen = strlcpy(filepath, connData->cgiArg, len);
+			if (espFsStat(espfs, filepath, &s) == 0 && s.type == ESPFS_TYPE_FILE) {
+				return outlen;
+			}
+		}
+		return strlcat(filepath, connData->url, len);
+	}
+
+	HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+	const char *route = connData->route;
+	char *url = connData->url;
+	while (*url && *route == *url) {
+		route++;
+		url++;
+	}
+
+	size_t basepathLen = 0;
+	if (ex->basepath) {
+		basepathLen = strlen(ex->basepath);
+	}
+	if (basepathLen == 0) {
+		return strlcpy(filepath, url, len);
+	}
+
+	if (url[0] == '/') {
+		url++;
+	}
+
+	outlen = strlcpy(filepath, ex->basepath, len);
+	if (!espFsStat(espfs, ex->basepath, &s) || s.type == ESPFS_TYPE_DIR) {
+		if (ex->basepath[basepathLen - 1] != '/') {
+			strlcat(filepath, "/", len);
+		}
+		outlen = strlcat(filepath, url, len);
+	}
+	return outlen;
+}
+
+
 //This is a catch-all cgi function. It takes the url passed to it, looks up the corresponding
 //path in the filesystem and if it exists, passes the file through. This simulates what a normal
 //webserver would do with static files.
 CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
-	const char *filepath = (connData->cgiArg == NULL) ? connData->url : (char *)connData->cgiArg;
+	if (connData->cgiData) {
+		return serveStaticFile(connData, NULL);
+	}
+
+	char filepath[256];
+	getFilepath(connData, filepath, sizeof(filepath));
 	return serveStaticFile(connData, filepath);
 }
 
@@ -232,7 +322,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
-		((TplCallback)(connData->cgiArg))(connData, NULL, &tpd->tplArg);
+		((TplCallback)(connData->cgiArg2))(connData, NULL, &tpd->tplArg);
 		espFsClose(tpd->file);
 		free(tpd);
 		return HTTPD_CGI_DONE;
@@ -248,13 +338,8 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 		tpd->chunk_resume = false;
 
-		const char *filepath = connData->url;
-		// check for custom template URL
-		if (connData->cgiArg2 != NULL) {
-			filepath = connData->cgiArg2;
-			ESP_LOGD(TAG, "Using filepath %s", filepath);
-		}
-
+		char filepath[256];
+		getFilepath(connData, filepath, sizeof(filepath));
 		tpd->file = espFsOpen(espfs, filepath);
 
 		if (tpd->file == NULL) {
@@ -276,9 +361,42 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		}
 		connData->cgiData=tpd;
 		httpdStartResponse(connData, 200);
-		const char *mime = httpdGetMimetype(connData->url);
-		httpdHeader(connData, "Content-Type", mime);
-		httpdAddCacheHeaders(connData, mime);
+
+		const char *mimetype = NULL;
+		bool sendContentType = false;
+		bool sentHeaders = false;
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->mimetype) {
+				mimetype = ex->mimetype;
+				sendContentType = true;
+			} else if (!ex->headerCb) {
+				sendContentType = true;
+			}
+		} else {
+			sendContentType = true;
+		}
+
+		if (sendContentType) {
+			if (!mimetype) {
+				mimetype = httpdGetMimetype(connData->url);
+			}
+			httpdHeader(connData, "Content-Type", mimetype);
+		}
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->headerCb) {
+				ex->headerCb(connData);
+				sentHeaders = true;
+			}
+		}
+
+		if (mimetype && !sentHeaders) {
+			httpdAddCacheHeaders(connData, mimetype);
+			sentHeaders = true;
+		}
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_MORE;
 	}
@@ -355,7 +473,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 						tpd->chunk_resume = false;
 
-						CgiStatus status = ((TplCallback)(connData->cgiArg))(connData, tpd->token, &tpd->tplArg);
+						CgiStatus status = ((TplCallback)(connData->cgiArg2))(connData, tpd->token, &tpd->tplArg);
 						if (status == HTTPD_CGI_MORE) {
 //							espfs_dbg("Multi-part tpl subst, saving parser state");
 							// wants to send more in this token's place.....
@@ -410,7 +528,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	if (sp!=0) httpdSend(connData, e, sp);
 	if (len!=FILE_CHUNK_LEN) {
 		//We're done.
-		((TplCallback)(connData->cgiArg))(connData, NULL, &tpd->tplArg);
+		((TplCallback)(connData->cgiArg2))(connData, NULL, &tpd->tplArg);
 		ESP_LOGD(TAG, "Template sent");
 		espFsClose(tpd->file);
 		free(tpd);

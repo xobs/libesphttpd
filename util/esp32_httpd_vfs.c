@@ -20,6 +20,9 @@ Connector to let httpd use the vfs filesystem to serve the files in it.
 #define FILE_CHUNK_LEN    (1024)
 #define MAX_FILENAME_LENGTH (1024)
 
+#define ESPFS_MAGIC (0x73665345)
+#define ESPFS_FLAG_GZIP (1<<1)
+
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
 static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
 
@@ -40,6 +43,49 @@ static void cgiJsonResponseCommon(HttpdConnData *connData, cJSON *jsroot){
         cJSON_free(json_string);
     }
     cJSON_Delete(jsroot);
+}
+
+static size_t getFilepath(HttpdConnData *connData, char *filepath, size_t len)
+{
+	struct stat s;
+	int outlen;
+
+	if (connData->cgiArg != &httpdCgiEx) {
+		filepath[0] = '\0';
+		if (connData->cgiArg != NULL) {
+			outlen = strlcpy(filepath, connData->cgiArg, len);
+			if (stat(filepath, &s) == 0 && S_ISREG(s.st_mode)) {
+				return outlen;
+			}
+		}
+		return strlcat(filepath, connData->url, len);
+	}
+
+	HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+	const char *route = connData->route;
+	char *url = connData->url;
+	while (*url && *route == *url) {
+		route++;
+		url++;
+	}
+
+	size_t basepathLen = strlen(ex->basepath);
+	if (!ex->basepath || basepathLen == 0) {
+		return strlcpy(filepath, url, len);
+	}
+
+	if (url[0] == '/') {
+		url++;
+	}
+
+	outlen = strlcpy(filepath, ex->basepath, len);
+	if (stat(ex->basepath, &s) != 0 || S_ISDIR(s.st_mode)) {
+		if (ex->basepath[basepathLen - 1] != '/') {
+			strlcat(filepath, "/", len);
+		}
+		outlen = strlcat(filepath, url, len);
+	}
+	return outlen;
 }
 
 CgiStatus ICACHE_FLASH_ATTR cgiEspVfsGet(HttpdConnData *connData) {
@@ -64,16 +110,12 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsGet(HttpdConnData *connData) {
 
 	//First call to this cgi.
 	if (file==NULL) {
+		isGzip = 0;
 		if (connData->requestType!=HTTPD_METHOD_GET) {
 			return HTTPD_CGI_NOTFOUND;  //	return and allow another cgi function to handle it
 		}
-		filename[0] = '\0';
 
-		if (connData->cgiArg != NULL) {
-			strncpy(filename, connData->cgiArg, MAX_FILENAME_LENGTH);
-		}
-		strncat(filename, connData->url, MAX_FILENAME_LENGTH - strlen(filename));
-		ESP_LOGD(__func__, "GET: %s", filename);
+		getFilepath(connData, filename, sizeof(filename));
 		
 		if(filename[strlen(filename)-1]=='/') filename[strlen(filename)-1]='\0';
 		if(stat(filename, &filestat) == 0) {
@@ -83,8 +125,12 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsGet(HttpdConnData *connData) {
 		}
 
 		file = fopen(filename, "r");
-		if (file != NULL) ESP_LOGD(__func__, "fopen: %s, r", filename);
-		isGzip = 0;
+		if (file != NULL) {
+			struct stat st = {};
+			fstat(fileno(file), &st);
+			isGzip = (st.st_spare4[0] == ESPFS_MAGIC && st.st_spare4[1] & ESPFS_FLAG_GZIP);
+			ESP_LOGD(__func__, "fopen: %s, r", filename);
+		}
 		
 		if (file==NULL) {
 			// Check if requested file is available GZIP compressed ie. with file extension .gz
@@ -114,11 +160,45 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsGet(HttpdConnData *connData) {
 
 		connData->cgiData=file;
 		httpdStartResponse(connData, 200);
-		httpdHeader(connData, "Content-Type", isIndex?httpdGetMimetype("index.html"):httpdGetMimetype(connData->url));
+
+		const char *mimetype = NULL;
+		bool sendContentType = false;
+		bool sentHeaders = false;
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->mimetype) {
+				mimetype = ex->mimetype;
+				sendContentType = true;
+			} else if (!ex->headerCb) {
+				sendContentType = true;
+			}
+		} else {
+			sendContentType = true;
+		}
+
+		if (sendContentType) {
+			if (!mimetype) {
+				mimetype = isIndex ? httpdGetMimetype("index.html") : httpdGetMimetype(connData->url);
+			}
+			httpdHeader(connData, "Content-Type", mimetype);
+		}
+
 		if (isGzip) {
 			httpdHeader(connData, "Content-Encoding", "gzip");
 		}
-		httpdHeader(connData, "Cache-Control", "max-age=3600, must-revalidate");
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->headerCb) {
+				ex->headerCb(connData);
+				sentHeaders = true;
+			}
+		}
+
+		if (mimetype && !sentHeaders) {
+			httpdAddCacheHeaders(connData, mimetype);
+		}
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_MORE;
 	}
@@ -152,6 +232,8 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsTemplate(HttpdConnData *connData) {
 	int x, sp=0;
 	char *e=NULL;
 	char buff[FILE_CHUNK_LEN +1];
+	char filename[MAX_FILENAME_LENGTH + 1];
+
 
 	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
@@ -165,6 +247,18 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsTemplate(HttpdConnData *connData) {
 
 	if (tpd==NULL) {
 		//First call to this cgi. Open the file so we can read it.
+		struct stat s;
+		if (stat(filename, &s) != 0 || S_ISDIR(s.st_mode)) {
+			return HTTPD_CGI_NOTFOUND;
+		}
+
+		if (s.st_spare4[0] == ESPFS_MAGIC && s.st_spare4[1] & ESPFS_FLAG_GZIP) {
+			ESP_LOGE(__func__, "Trying to use gzip-compressed file %s as template!", connData->url);
+			return HTTPD_CGI_NOTFOUND;
+		}
+
+		getFilepath(connData, filename, sizeof(filename));
+
 		tpd=(TplData *)malloc(sizeof(TplData));
 		if (tpd==NULL) return HTTPD_CGI_NOTFOUND;
 		tpd->file=fopen(connData->url, "r");
@@ -175,17 +269,38 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsTemplate(HttpdConnData *connData) {
 			free(tpd);
 			return HTTPD_CGI_NOTFOUND;
 		}
-		/*
-		if (espFsFlags(tpd->file) & FLAG_GZIP) {
-			httpd_printf("cgiEspFsTemplate: Trying to use gzip-compressed file %s as template!\n", connData->url);
-			espFsClose(tpd->file);
-			free(tpd);
-			return HTTPD_CGI_NOTFOUND;
-		}
-		*/
+
 		connData->cgiData=tpd;
 		httpdStartResponse(connData, 200);
-		httpdHeader(connData, "Content-Type", httpdGetMimetype(connData->url));
+
+		const char *mimetype = NULL;
+		bool sendContentType = false;
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->mimetype) {
+				mimetype = ex->mimetype;
+				sendContentType = true;
+			} else if (!ex->headerCb) {
+				sendContentType = true;
+			}
+		} else {
+			sendContentType = true;
+		}
+
+		if (sendContentType) {
+			if (!mimetype) {
+				mimetype = httpdGetMimetype(connData->url);
+			}
+			httpdHeader(connData, "Content-Type", mimetype);
+		}
+
+		if (connData->cgiArg == &httpdCgiEx) {
+			HttpdCgiExArg *ex = (HttpdCgiExArg *)connData->cgiArg2;
+			if (ex->headerCb) {
+				ex->headerCb(connData);
+			}
+		}
 		httpdEndHeaders(connData);
 		return HTTPD_CGI_MORE;
 	}
