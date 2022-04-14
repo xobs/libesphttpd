@@ -51,12 +51,12 @@ config ESPHTTPD_CORS_SUPPORT
         Enable support for CORS, cross origin resource sharing.
         NOTE: Requires 256 bytes of RAM for each connection
 
-config ESPHTTPD_USE_ESPFS
-	bool "Enable espfs filesystem"
+config ESPHTTPD_USE_FROGFS
+	bool "Enable frogfs filesystem"
         depends on ESPHTTPD_ENABLED
 	default y
 	help
-		Enables integration with espfs (readonly) filesystem.  You need to include espfs submodule in your project if enabled.
+		Enables integration with FrogFS (readonly) filesystem.  You need to include frogfs submodule in your project if enabled.
 
 config ESPHTTPD_SO_REUSEADDR
 	bool "Set SO_REUSEADDR to avoid waiting for a port in TIME_WAIT."

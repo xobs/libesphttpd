@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /*
-Connector to let httpd use the espfs filesystem to serve the files in it.
+Connector to let httpd use the frogfs filesystem to serve the files in it.
 */
 
 #ifdef linux
@@ -12,23 +12,23 @@ Connector to let httpd use the espfs filesystem to serve the files in it.
 #include <libesphttpd/esp.h>  // for sdkconfig.h
 #endif
 
-#include <libesphttpd/httpd-espfs.h>
+#include <libesphttpd/httpd-frogfs.h>
 
-#ifdef CONFIG_ESPHTTPD_USE_ESPFS
-#include "libespfs/espfs.h"
+#ifdef CONFIG_ESPHTTPD_USE_FROGFS
+#include "frogfs/frogfs.h"
 #include "esp_log.h"
-const static char* TAG = "httpdespfs";
+const static char* TAG = "httpdfrogfs";
 
 #define FILE_CHUNK_LEN    1024
 
-// The static files marked with ESPFS_FLAG_GZIP are compressed and will be served with GZIP compression.
+// The static files marked with FROGFS_FLAG_GZIP are compressed and will be served with GZIP compression.
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
 static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
 
-static espfs_fs_t *espfs = NULL;
+static frogfs_fs_t *frogfs = NULL;
 
-void httpdRegisterEspfs(espfs_fs_t *fs) {
-	espfs = fs;
+void httpdRegisterFrogFs(frogfs_fs_t *fs) {
+	frogfs = fs;
 }
 
 /**
@@ -37,9 +37,9 @@ void httpdRegisterEspfs(espfs_fs_t *fs) {
  * @param indexname - filename at the path
  * @return file pointer or NULL
  */
-static espfs_file_t *tryOpenIndex_do(const char *path, const char *indexname) {
+static frogfs_file_t *tryOpenIndex_do(const char *path, const char *indexname) {
 	char fname[100];
-	espfs_file_t *retval;
+	frogfs_file_t *retval;
 	size_t url_len = strlen(path);
 	size_t index_len = strlen(indexname);
 	bool needSlash = false;
@@ -69,7 +69,7 @@ static espfs_file_t *tryOpenIndex_do(const char *path, const char *indexname) {
 		strcat(fname, indexname);
 
 		// Try to open, returns NULL if failed
-		retval = espfs_fopen(espfs, fname);
+		retval = frogfs_fopen(frogfs, fname);
 	}
 
 	return retval;
@@ -80,8 +80,8 @@ static espfs_file_t *tryOpenIndex_do(const char *path, const char *indexname) {
  * @param path - directory
  * @return file pointer or NULL
  */
-espfs_file_t *tryOpenIndex(const char *path) {
-	espfs_file_t * file;
+frogfs_file_t *tryOpenIndex(const char *path) {
+	frogfs_file_t * file;
 	// A dot in the filename probably means extension
 	// no point in trying to look for index.
 	if (strchr(path, '.') != NULL) return NULL;
@@ -103,7 +103,7 @@ espfs_file_t *tryOpenIndex(const char *path) {
 
 CgiStatus ICACHE_FLASH_ATTR
 serveStaticFile(HttpdConnData *connData, const char* filepath) {
-	espfs_file_t *file=connData->cgiData;
+	frogfs_file_t *file=connData->cgiData;
 	int len;
 	char buff[FILE_CHUNK_LEN+1];
 	char acceptEncodingBuffer[64];
@@ -111,7 +111,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 
 	if (connData->isConnectionClosed) {
 		//Connection closed. Clean up.
-		espfs_fclose(file);
+		frogfs_fclose(file);
 		return HTTPD_CGI_DONE;
 	}
 
@@ -124,7 +124,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		}
 
 		//First call to this cgi. Open the file so we can read it.
-		file = espfs_fopen(espfs, filepath);
+		file = frogfs_fopen(frogfs, filepath);
 		if (file == NULL) {
 			// file not found
 
@@ -134,12 +134,12 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		}
 
 		// The gzip checking code is intentionally without #ifdefs because checking
-		// for ESPFS_FLAG_GZIP (which indicates gzip compressed file) is very easy, doesn't
+		// for FROGFS_FLAG_GZIP (which indicates gzip compressed file) is very easy, doesn't
 		// mean additional overhead and is actually safer to be on at all times.
 		// If there are no gzipped files in the image, the code bellow will not cause any harm.
 
 		// Check if requested file was GZIP compressed
-		isGzip = espfs_ftell(file) & ESPFS_FLAG_GZIP;
+		isGzip = frogfs_ftell(file) & FROGFS_FLAG_GZIP;
 		if (isGzip) {
 			// Check the browser's "Accept-Encoding" header. If the client does not
 			// advertise that he accepts GZIP send a warning message (telnet users for e.g.)
@@ -147,7 +147,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 			if (!found || (strstr(acceptEncodingBuffer, "gzip") == NULL)) {
 				//No Accept-Encoding: gzip header present
 				httpdSend(connData, gzipNonSupportedMessage, -1);
-				espfs_fclose(file);
+				frogfs_fclose(file);
 				return HTTPD_CGI_DONE;
 			}
 		}
@@ -197,11 +197,11 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		return HTTPD_CGI_MORE;
 	}
 
-	len=espfs_fread(file, buff, FILE_CHUNK_LEN);
+	len=frogfs_fread(file, buff, FILE_CHUNK_LEN);
 	if (len>0) httpdSend(connData, buff, len);
 	if (len!=FILE_CHUNK_LEN) {
 		//We're done.
-		espfs_fclose(file);
+		frogfs_fclose(file);
 		return HTTPD_CGI_DONE;
 	} else {
 		//Ok, till next time.
@@ -212,18 +212,18 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 
 static size_t getFilepath(HttpdConnData *connData, char *filepath, size_t len)
 {
-	espfs_stat_t s;
+	frogfs_stat_t s;
 	int outlen;
-	if (!espfs)
+	if (!frogfs)
 	{
-		ESP_LOGE(TAG, "espfs not registered");
+		ESP_LOGE(TAG, "frogfs not registered");
 		return -1;
 	}
 	if (connData->cgiArg != &httpdCgiEx) {
 		filepath[0] = '\0';
 		if (connData->cgiArg != NULL) {
 			outlen = strlcpy(filepath, connData->cgiArg, len);
-			if (espfs_stat(espfs, filepath, &s) == 0 && s.type == ESPFS_TYPE_FILE) {
+			if (frogfs_stat(frogfs, filepath, &s) == 0 && s.type == FROGFS_TYPE_FILE) {
 				return outlen;
 			}
 		}
@@ -251,7 +251,7 @@ static size_t getFilepath(HttpdConnData *connData, char *filepath, size_t len)
 	}
 
 	outlen = strlcpy(filepath, ex->basepath, len);
-	if (!espfs_stat(espfs, ex->basepath, &s) || s.type == ESPFS_TYPE_DIR) {
+	if (!frogfs_stat(frogfs, ex->basepath, &s) || s.type == FROGFS_TYPE_DIR) {
 		if (ex->basepath[basepathLen - 1] != '/') {
 			strlcat(filepath, "/", len);
 		}
@@ -264,7 +264,7 @@ static size_t getFilepath(HttpdConnData *connData, char *filepath, size_t len)
 //This is a catch-all cgi function. It takes the url passed to it, looks up the corresponding
 //path in the filesystem and if it exists, passes the file through. This simulates what a normal
 //webserver would do with static files.
-CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiFrogFsHook(HttpdConnData *connData) {
 	if (connData->cgiData) {
 		return serveStaticFile(connData, NULL);
 	}
@@ -275,7 +275,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsHook(HttpdConnData *connData) {
 }
 
 
-//cgiEspFsTemplate can be used as a template.
+//cgiFrogFsTemplate can be used as a template.
 
 typedef enum {
 	ENCODE_PLAIN = 0,
@@ -284,7 +284,7 @@ typedef enum {
 } TplEncode;
 
 typedef struct {
-	espfs_file_t *file;
+	frogfs_file_t *file;
 	void *tplArg;
 	char token[64];
 	int tokenPos;
@@ -312,7 +312,7 @@ tplSend(HttpdConnData *conn, const char *str, int len)
         return 0;
 }
 
-CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
+CgiStatus ICACHE_FLASH_ATTR cgiFrogFsTemplate(HttpdConnData *connData) {
 	TplData *tpd=connData->cgiData;
 	int len;
 	int x, sp=0;
@@ -322,7 +322,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	if (connData->isConnectionClosed) {
 		//Connection aborted. Clean up.
 		((TplCallback)(connData->cgiArg2))(connData, NULL, &tpd->tplArg);
-		espfs_fclose(tpd->file);
+		frogfs_fclose(tpd->file);
 		free(tpd);
 		return HTTPD_CGI_DONE;
 	}
@@ -339,7 +339,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 		char filepath[256];
 		getFilepath(connData, filepath, sizeof(filepath));
-		tpd->file = espfs_fopen(espfs, filepath);
+		tpd->file = frogfs_fopen(frogfs, filepath);
 
 		if (tpd->file == NULL) {
 			// maybe a folder, look for index file
@@ -352,9 +352,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 		tpd->tplArg=NULL;
 		tpd->tokenPos=-1;
-		if (espfs_ftell(tpd->file) & ESPFS_FLAG_GZIP) {
-			ESP_LOGE(TAG, "cgiEspFsTemplate: Trying to use gzip-compressed file %s as template", connData->url);
-			espfs_fclose(tpd->file);
+		if (frogfs_ftell(tpd->file) & FROGFS_FLAG_GZIP) {
+			ESP_LOGE(TAG, "cgiFrogFsTemplate: Trying to use gzip-compressed file %s as template", connData->url);
+			frogfs_fclose(tpd->file);
 			free(tpd);
 			return HTTPD_CGI_NOTFOUND;
 		}
@@ -405,13 +405,13 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 	// resume the parser state from the last token,
 	// if subst. func wants more data to be sent.
 	if (tpd->chunk_resume) {
-		//espfs_dbg("Resuming tpl parser for multi-part subst");
+		//frogfs_dbg("Resuming tpl parser for multi-part subst");
 		len = tpd->buff_len;
 		e = tpd->buff_e;
 		sp = tpd->buff_sp;
 		x = tpd->buff_x;
 	} else {
-		len = espfs_fread(tpd->file, buff, FILE_CHUNK_LEN);
+		len = frogfs_fread(tpd->file, buff, FILE_CHUNK_LEN);
 		tpd->buff_len = len;
 
 		e = buff;
@@ -474,7 +474,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 
 						CgiStatus status = ((TplCallback)(connData->cgiArg2))(connData, tpd->token, &tpd->tplArg);
 						if (status == HTTPD_CGI_MORE) {
-//							espfs_dbg("Multi-part tpl subst, saving parser state");
+//							frogfs_dbg("Multi-part tpl subst, saving parser state");
 							// wants to send more in this token's place.....
 							tpd->chunk_resume = true;
 							tpd->buff_len = len;
@@ -529,7 +529,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		//We're done.
 		((TplCallback)(connData->cgiArg2))(connData, NULL, &tpd->tplArg);
 		ESP_LOGD(TAG, "Template sent");
-		espfs_fclose(tpd->file);
+		frogfs_fclose(tpd->file);
 		free(tpd);
 		return HTTPD_CGI_DONE;
 	} else {
@@ -537,4 +537,4 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData) {
 		return HTTPD_CGI_MORE;
 	}
 }
-#endif // CONFIG_ESPHTTPD_USE_ESPFS
+#endif // CONFIG_ESPHTTPD_USE_FROGFS

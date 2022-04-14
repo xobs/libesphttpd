@@ -16,10 +16,10 @@ set (libesphttpd_SOURCES "core/auth.c"
 set (libesphttpd_PRIV_INCLUDE_DIRS "core"
                                    "util")
 
-if (CONFIG_ESPHTTPD_USE_ESPFS)
-    list (APPEND libesphttpd_SOURCES "core/httpd-espfs.c")
-    list (APPEND libesphttpd_PRIV_INCLUDE_DIRS "../espfs/include")
-endif (CONFIG_ESPHTTPD_USE_ESPFS)
+if (CONFIG_ESPHTTPD_USE_FROGFS)
+    list (APPEND libesphttpd_SOURCES "core/httpd-frogfs.c")
+    list (APPEND libesphttpd_PRIV_INCLUDE_DIRS "../frogfs/include")
+endif (CONFIG_ESPHTTPD_USE_FROGFS)
 
 idf_component_register(
     SRCS "${libesphttpd_SOURCES}"

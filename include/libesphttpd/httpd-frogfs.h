@@ -1,5 +1,5 @@
-#ifndef HTTPDESPFS_H
-#define HTTPDESPFS_H
+#ifndef HTTPDFROGFS_H
+#define HTTPDFROGFS_H
 
 #ifdef linux
 #include <libesphttpd/linux.h>
@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 
-#ifdef CONFIG_ESPHTTPD_USE_ESPFS
-#include "libespfs/espfs.h"
+#ifdef CONFIG_ESPHTTPD_USE_FROGFS
+#include "frogfs/frogfs.h"
 #include "httpd.h"
 /**
  * The template substitution callback.
@@ -20,19 +20,19 @@ extern "C" {
  */
 typedef CgiStatus (* TplCallback)(HttpdConnData *connData, char *token, void **arg);
 
-void httpdRegisterEspfs(espfs_fs_t *fs);
-CgiStatus cgiEspFsHook(HttpdConnData *connData);
-CgiStatus ICACHE_FLASH_ATTR cgiEspFsTemplate(HttpdConnData *connData);
+void httpdRegisterFrogFs(frogfs_fs_t *fs);
+CgiStatus cgiFrogFsHook(HttpdConnData *connData);
+CgiStatus ICACHE_FLASH_ATTR cgiFrogFsTemplate(HttpdConnData *connData);
 
 /**
  * @return 1 upon success, 0 upon failure
  */
 int tplSend(HttpdConnData *conn, const char *str, int len);
 
-#endif // CONFIG_ESPHTTPD_USE_ESPFS
+#endif // CONFIG_ESPHTTPD_USE_FROGFS
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif // HTTPDESPFS_H
+#endif // HTTPDFROGFS_H
