@@ -23,7 +23,7 @@ const static char* TAG = "httpdfrogfs";
 
 // The static files marked with FROGFS_FLAG_GZIP are compressed and will be served with GZIP compression.
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
-static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
+static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp32-httpd/"HTTPDVER"\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
 
 static frogfs_fs_t *frogfs = NULL;
 
@@ -101,6 +101,12 @@ frogfs_file_t *tryOpenIndex(const char *path) {
 	return NULL; // failed to guess the right name
 }
 
+static bool is_gzip(frogfs_file_t *file) {
+	frogfs_stat_t st;
+	frogfs_fstat(file, &st);
+	return (st.flags & FROGFS_FLAG_GZIP) != 0;
+}
+
 CgiStatus ICACHE_FLASH_ATTR
 serveStaticFile(HttpdConnData *connData, const char* filepath) {
 	frogfs_file_t *file=connData->cgiData;
@@ -139,7 +145,7 @@ serveStaticFile(HttpdConnData *connData, const char* filepath) {
 		// If there are no gzipped files in the image, the code bellow will not cause any harm.
 
 		// Check if requested file was GZIP compressed
-		isGzip = frogfs_ftell(file) & FROGFS_FLAG_GZIP;
+		isGzip = is_gzip(file);
 		if (isGzip) {
 			// Check the browser's "Accept-Encoding" header. If the client does not
 			// advertise that he accepts GZIP send a warning message (telnet users for e.g.)
@@ -352,7 +358,7 @@ CgiStatus ICACHE_FLASH_ATTR cgiFrogFsTemplate(HttpdConnData *connData) {
 
 		tpd->tplArg=NULL;
 		tpd->tokenPos=-1;
-		if (frogfs_ftell(tpd->file) & FROGFS_FLAG_GZIP) {
+		if (is_gzip(tpd->file)) {
 			ESP_LOGE(TAG, "cgiFrogFsTemplate: Trying to use gzip-compressed file %s as template", connData->url);
 			frogfs_fclose(tpd->file);
 			free(tpd);
