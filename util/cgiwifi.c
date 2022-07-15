@@ -293,38 +293,6 @@ CgiStatus ICACHE_FLASH_ATTR cgiWiFiSetChannel(HttpdConnData *connData)
 	return HTTPD_CGI_DONE;
 }
 
-CgiStatus ICACHE_FLASH_ATTR cgiWiFiConnStatus(HttpdConnData *connData)
-{
-	char buff[1024];
-	int len;
-	struct ip_info info;
-	int st = wifi_station_get_connect_status();
-	httpdStartResponse(connData, 200);
-	httpdHeader(connData, "Content-Type", "text/json");
-	httpdEndHeaders(connData);
-	if (connTryStatus == CONNTRY_IDLE) {
-		len = sprintf(buff, "{\n \"status\": \"idle\"\n }\n");
-	} else if (connTryStatus == CONNTRY_WORKING || connTryStatus == CONNTRY_SUCCESS) {
-		if (st == STATION_GOT_IP) {
-			wifi_get_ip_info(0, &info);
-			len = sprintf(buff, "{\n \"status\": \"success\",\n \"ip\": \"%d.%d.%d.%d\" }\n",
-				      (info.ip.addr >> 0) & 0xff, (info.ip.addr >> 8) & 0xff,
-				      (info.ip.addr >> 16) & 0xff, (info.ip.addr >> 24) & 0xff);
-			//Reset into AP-only mode sooner.
-			os_timer_disarm(&resetTimer);
-			os_timer_setfn(&resetTimer, resetTimerCb, NULL);
-			os_timer_arm(&resetTimer, 1000, 0);
-		} else {
-			len = sprintf(buff, "{\n \"status\": \"working\"\n }\n");
-		}
-	} else {
-		len = sprintf(buff, "{\n \"status\": \"fail\"\n }\n");
-	}
-
-	httpdSend(connData, buff, len);
-	return HTTPD_CGI_DONE;
-}
-
 //Template code for the WLAN page.
 CgiStatus ICACHE_FLASH_ATTR tplWlan(HttpdConnData *connData, char *token, void **arg)
 {

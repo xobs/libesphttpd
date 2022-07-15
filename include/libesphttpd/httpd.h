@@ -1,6 +1,8 @@
 #ifndef HTTPD_H
 #define HTTPD_H
 
+#pragma once
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -157,7 +159,7 @@ typedef struct {
 	const void *cgiArg2;
 } HttpdBuiltInUrl;
 
-const char *httpdCgiEx;  /* Magic for use in CgiArgs to interpret CgiArgs2 as HttpdCgiExArg */
+extern const char *httpdCgiEx;  /* Magic for use in CgiArgs to interpret CgiArgs2 as HttpdCgiExArg */
 
 typedef struct {
 	void (*headerCb)(HttpdConnData *connData);

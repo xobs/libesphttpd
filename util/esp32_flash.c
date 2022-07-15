@@ -13,7 +13,7 @@ Broken out because esp-idf is expected to get better routines for this.
 #include <stdio.h>
 #include <stdlib.h>
 #include "rom/cache.h"
-#include "rom/ets_sys.h"
+// #include "rom/ets_sys.h"
 #include "rom/spi_flash.h"
 #include "rom/crc.h"
 #include "rom/rtc.h"
@@ -42,9 +42,9 @@ static int getOtaSel()
 	int selectedPart;
 	ota_select sa1, sa2;
 	const esp_partition_t *otaselpart =
-	    esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
-	spi_flash_read((uint32)otaselpart->address, (uint32_t *)&sa1, sizeof(ota_select));
-	spi_flash_read((uint32)otaselpart->address + 0x1000, (uint32_t *)&sa2, sizeof(ota_select));
+		esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
+	esp_flash_read(NULL, (uint32_t *)&sa1, (uint32)otaselpart->address, sizeof(ota_select));
+	esp_flash_read(NULL, (uint32_t *)&sa2, (uint32)otaselpart->address + 0x1000, sizeof(ota_select));
 	if (ota_select_valid(&sa1) && ota_select_valid(&sa2)) {
 		selectedPart = (((sa1.ota_seq > sa2.ota_seq) ? sa1.ota_seq : sa2.ota_seq)) % 2;
 	} else if (ota_select_valid(&sa1)) {
@@ -65,8 +65,7 @@ int esp32flashGetUpdateMem(uint32_t *loc, uint32_t *size)
 	int selectedPart = getOtaSel();
 	if (selectedPart == -1)
 		return 0;
-	otaselpart =
-	    esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_0 + selectedPart, NULL);
+	otaselpart = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_0 + selectedPart, NULL);
 	*loc = otaselpart->address;
 	*size = otaselpart->size;
 	return 1;
@@ -75,11 +74,11 @@ int esp32flashGetUpdateMem(uint32_t *loc, uint32_t *size)
 int esp32flashSetOtaAsCurrentImage()
 {
 	const esp_partition_t *otaselpart =
-	    esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
+		esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, NULL);
 	int selSect = -1;
 	ota_select sa1, sa2, newsa;
-	spi_flash_read((uint32)otaselpart->address, (uint32_t *)&sa1, sizeof(ota_select));
-	spi_flash_read((uint32)otaselpart->address + 0x1000, (uint32_t *)&sa2, sizeof(ota_select));
+	esp_flash_read(NULL, (uint32_t *)&sa1, (uint32)otaselpart->address, sizeof(ota_select));
+	esp_flash_read(NULL, (uint32_t *)&sa2, (uint32)otaselpart->address + 0x1000, sizeof(ota_select));
 	if (ota_select_valid(&sa1) && ota_select_valid(&sa2)) {
 		selSect = (sa1.ota_seq > sa2.ota_seq) ? 1 : 0;
 	} else if (ota_select_valid(&sa1)) {
@@ -93,14 +92,14 @@ int esp32flashSetOtaAsCurrentImage()
 		newsa.ota_seq = sa2.ota_seq + 1;
 		printf("Writing seq %d to ota select sector 1\n", newsa.ota_seq);
 		newsa.crc = ota_select_crc(&newsa);
-		spi_flash_erase_sector(otaselpart->address / 0x1000);
-		spi_flash_write(otaselpart->address, (uint32_t *)&newsa, sizeof(ota_select));
+		esp_flash_erase_region(NULL, otaselpart->address / 0x1000, SPI_FLASH_SEC_SIZE);
+		esp_flash_write(NULL, (uint32_t *)&newsa, otaselpart->address, sizeof(ota_select));
 	} else {
 		printf("Writing seq %d to ota select sector 2\n", newsa.ota_seq);
 		newsa.ota_seq = sa1.ota_seq + 1;
 		newsa.crc = ota_select_crc(&newsa);
-		spi_flash_erase_sector(otaselpart->address / 0x1000 + 1);
-		spi_flash_write(otaselpart->address + 0x1000, (uint32_t *)&newsa, sizeof(ota_select));
+		esp_flash_erase_region(NULL, otaselpart->address / 0x1000 + 1, SPI_FLASH_SEC_SIZE);
+		esp_flash_write(NULL, (uint32_t *)&newsa, otaselpart->address + 0x1000, sizeof(ota_select));
 	}
 	return 1;
 }

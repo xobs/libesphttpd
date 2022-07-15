@@ -536,8 +536,9 @@ CgiStatus ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData)
 
 static HttpdPlatTimerHandle resetTimer;
 
-static void ICACHE_FLASH_ATTR resetTimerCb(void *arg)
+static void ICACHE_FLASH_ATTR resetTimerCb(struct tmrTimerControl *ignored)
 {
+	(void)ignored;
 #ifndef ESP32
 	system_upgrade_flag_set(UPGRADE_FLAG_FINISH);
 	system_upgrade_reboot();

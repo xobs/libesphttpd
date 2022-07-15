@@ -30,7 +30,7 @@ typedef int32_t int32;
 #ifdef ESP32
 #include "esp_types.h"
 #include "esp_attr.h"
-#include "esp_spi_flash.h"
+// #include "esp_spi_flash.h"
 #else
 #include <espressif/esp_common.h>
 #endif
@@ -39,7 +39,7 @@ typedef int32_t int32;
 #include <c_types.h>
 #include <ip_addr.h>
 #include <espconn.h>
-#include <ets_sys.h>
+// #include <ets_sys.h>
 #include <gpio.h>
 #include <mem.h>
 #include <osapi.h>

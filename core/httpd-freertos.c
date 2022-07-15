@@ -654,7 +654,7 @@ void httpdPlatTimerDelete(HttpdPlatTimerHandle handle)
     free(handle);
 }
 #else
-HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(void *arg), void *ctx)
+HttpdPlatTimerHandle httpdPlatTimerCreate(const char *name, int periodMs, int autoreload, void (*callback)(struct tmrTimerControl *arg), void *ctx)
 {
     HttpdPlatTimerHandle ret;
 #ifdef ESP32

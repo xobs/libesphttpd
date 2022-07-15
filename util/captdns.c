@@ -21,7 +21,7 @@ static const char* TAG = "captdns";
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "tcpip_adapter.h"
+// #include "tcpip_adapter.h"
 #else
 #include "FreeRTOS.h"
 #include "task.h"

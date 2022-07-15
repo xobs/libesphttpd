@@ -29,20 +29,20 @@ static const char *TAG = "esp32_cgiwifi";
 /* Enable this to disallow any changes in AP settings. */
 //#define DEMO_MODE
 
-#define MAX_NUM_APS 32
+#define MAX_NUM_APS  32
 #define SCAN_TIMEOUT (60 * 1000 / portTICK_PERIOD_MS)
-#define CFG_TIMEOUT (60 * 1000 / portTICK_PERIOD_MS)
-#define CFG_TICKS (1000 / portTICK_PERIOD_MS)
-#define CFG_DELAY (100 / portTICK_PERIOD_MS)
+#define CFG_TIMEOUT  (60 * 1000 / portTICK_PERIOD_MS)
+#define CFG_TICKS    (1000 / portTICK_PERIOD_MS)
+#define CFG_DELAY    (100 / portTICK_PERIOD_MS)
 
 /* Jiffy overflow handling stolen from Linux kernel. Needed to check *\
 \* for timeouts.                                                     */
-#define typecheck(type, x)                                                                                             \
-	({                                                                                                             \
-		type __dummy;                                                                                          \
-		typeof(x) __dummy2;                                                                                    \
-		(void)(&__dummy == &__dummy2);                                                                         \
-		1;                                                                                                     \
+#define typecheck(type, x)                             \
+	({                                                 \
+		type __dummy;                                  \
+		typeof(x) __dummy2;                            \
+		(void)((void *)&__dummy == (void *)&__dummy2); \
+		1;                                             \
 	})
 
 #define time_after(a, b) (typecheck(unsigned int, a) && typecheck(unsigned int, b) && ((long)((b) - (a)) < 0))
@@ -62,8 +62,8 @@ enum cfg_state {
 	cfg_state_fallback,
 };
 
-const char *state_names[] = { "Failed",	   "Connected",	 "Idle",       "Update",
-			      "WPS Start", "WPS Active", "Connecting", "Fall Back" };
+const char *state_names[] = {
+	"Failed", "Connected", "Idle", "Update", "WPS Start", "WPS Active", "Connecting", "Fall Back"};
 
 /* Holds complete WiFi config for both STA and AP, the mode and whether *\
 \* the WiFi should connect to an AP in STA or APSTA mode.               */
@@ -109,8 +109,8 @@ struct ap_data_iter {
 static volatile atomic_bool scan_in_progress = ATOMIC_VAR_INIT(false);
 static SemaphoreHandle_t data_lock = NULL;
 static struct scan_data *last_scan = NULL;
-static TimerHandle_t *scan_timer = NULL;
-static TimerHandle_t *config_timer = NULL;
+static TimerHandle_t scan_timer = NULL;
+static TimerHandle_t config_timer = NULL;
 
 static void handle_scan_timer(TimerHandle_t timer);
 static void handle_config_timer(TimerHandle_t timer);
@@ -238,6 +238,7 @@ static void put_scan_data(struct scan_data *data)
 	kref_put(&(data->ref_cnt), free_scan_data);
 }
 
+#if 0
 /* Fetch the latest AP scan data and make it available. */
 static void wifi_scan_done(system_event_t *event)
 {
@@ -335,6 +336,7 @@ err_out:
 		xTimerStop(scan_timer, 0);
 	}
 }
+#endif
 
 /* Timer function to stop a hanging AP scan. */
 static void handle_scan_timer(TimerHandle_t timer)
@@ -410,6 +412,7 @@ err_out:
 	return result;
 }
 
+#if 0
 /* This CGI is called from the bit of AJAX-code in wifi.tpl. It will       *\
  * initiate a scan for access points and if available will return the      *
  * result of an earlier scan. The result is embedded in a bit of JSON      *
@@ -418,7 +421,7 @@ CgiStatus cgiWiFiScan(HttpdConnData *connData)
 {
 	struct ap_data_iter *iter;
 	struct scan_data *data;
-	wifi_ap_record_t *record;
+	// wifi_ap_record_t *record;
 	wifi_mode_t mode;
 	CgiStatus result;
 	int len;
@@ -473,8 +476,8 @@ CgiStatus cgiWiFiScan(HttpdConnData *connData)
         \* data from the list.                                              */
 		if (iter->idx == 0) {
 			len = sprintf(buff, "{\n \"result\": { \n"
-					    "\"inProgress\": \"0\", \n"
-					    "\"APs\": [\n");
+								"\"inProgress\": \"0\", \n"
+								"\"APs\": [\n");
 			httpdSend(connData, buff, len);
 		}
 
@@ -490,16 +493,16 @@ CgiStatus cgiWiFiScan(HttpdConnData *connData)
 			++iter->idx;
 
 			len = sprintf(buff,
-				      "{\"essid\": \"%s\", "
-				      "\"bssid\": \"" MACSTR "\", "
-				      "\"rssi\": \"%d\", "
-				      "\"enc\": \"%d\", "
-				      "\"channel\": \"%d\"}%s\n",
-				      record->ssid, MAC2STR(record->bssid), record->rssi,
-				      record->authmode == WIFI_AUTH_OPEN  ? 0
-				      : record->authmode == WIFI_AUTH_WEP ? 1
-									  : 2,
-				      record->primary, iter->idx < iter->data->num_records ? "," : "");
+				"{\"essid\": \"%s\", "
+				"\"bssid\": \"" MACSTR "\", "
+				"\"rssi\": \"%d\", "
+				"\"enc\": \"%d\", "
+				"\"channel\": \"%d\"}%s\n",
+				record->ssid, MAC2STR(record->bssid), record->rssi,
+				record->authmode == WIFI_AUTH_OPEN  ? 0
+				: record->authmode == WIFI_AUTH_WEP ? 1
+													: 2,
+				record->primary, iter->idx < iter->data->num_records ? "," : "");
 			httpdSend(connData, buff, len);
 		}
 
@@ -565,16 +568,14 @@ static void set_wifi_cfg(struct wifi_cfg *cfg)
 	if (cfg->mode == WIFI_MODE_APSTA || cfg->mode == WIFI_MODE_AP) {
 		result = esp_wifi_set_config(WIFI_IF_AP, &(cfg->ap));
 		if (result != ESP_OK) {
-			ESP_LOGE(TAG, "[%s] esp_wifi_set_config() AP: %d %s", __FUNCTION__, result,
-				 esp_err_to_name(result));
+			ESP_LOGE(TAG, "[%s] esp_wifi_set_config() AP: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 		}
 	}
 
 	if (cfg->mode == WIFI_MODE_APSTA || cfg->mode == WIFI_MODE_STA) {
 		result = esp_wifi_set_config(WIFI_IF_STA, &(cfg->sta));
 		if (result != ESP_OK) {
-			ESP_LOGE(TAG, "[%s] esp_wifi_set_config() STA: %d %s", __FUNCTION__, result,
-				 esp_err_to_name(result));
+			ESP_LOGE(TAG, "[%s] esp_wifi_set_config() STA: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 		}
 	}
 
@@ -694,16 +695,14 @@ static void handle_config_timer(TimerHandle_t timer)
 		xEventGroupClearBits(wifi_events, BITS_WPS);
 		result = esp_wifi_wps_enable(&config);
 		if (result != ESP_OK) {
-			ESP_LOGE(TAG, "[%s] esp_wifi_wps_enable() failed: %d %s", __FUNCTION__, result,
-				 esp_err_to_name(result));
+			ESP_LOGE(TAG, "[%s] esp_wifi_wps_enable() failed: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 			cfg_state.state = cfg_state_fallback;
 			delay = CFG_DELAY;
 		}
 
 		result = esp_wifi_wps_start(0);
 		if (result != ESP_OK) {
-			ESP_LOGE(TAG, "[%s] esp_wifi_wps_start() failed: %d %s", __FUNCTION__, result,
-				 esp_err_to_name(result));
+			ESP_LOGE(TAG, "[%s] esp_wifi_wps_start() failed: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 			cfg_state.state = cfg_state_fallback;
 			delay = CFG_DELAY;
 		}
@@ -721,8 +720,7 @@ static void handle_config_timer(TimerHandle_t timer)
 			ESP_LOGI(TAG, "[%s] WPS success.", __FUNCTION__);
 			result = esp_wifi_wps_disable();
 			if (result != ESP_OK) {
-				ESP_LOGE(TAG, "[%s] wifi wps disable: %d %s", __FUNCTION__, result,
-					 esp_err_to_name(result));
+				ESP_LOGE(TAG, "[%s] wifi wps disable: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 			}
 
 			/* Get received STA config, then force APSTA mode, set  *\
@@ -738,8 +736,7 @@ static void handle_config_timer(TimerHandle_t timer)
 
 			result = esp_wifi_wps_disable();
 			if (result != ESP_OK) {
-				ESP_LOGE(TAG, "[%s] wifi wps disable: %d %s", __FUNCTION__, result,
-					 esp_err_to_name(result));
+				ESP_LOGE(TAG, "[%s] wifi wps disable: %d %s", __FUNCTION__, result, esp_err_to_name(result));
 			}
 
 			cfg_state.state = cfg_state_fallback;
@@ -754,8 +751,7 @@ static void handle_config_timer(TimerHandle_t timer)
 		(void)esp_wifi_disconnect();
 		set_wifi_cfg(&(cfg_state.new));
 
-		if (cfg_state.new.mode == WIFI_MODE_AP || cfg_state.new.mode == WIFI_MODE_NULL ||
-		    !cfg_state.new.connect) {
+		if (cfg_state.new.mode == WIFI_MODE_AP || cfg_state.new.mode == WIFI_MODE_NULL || !cfg_state.new.connect) {
 			/* AP-only mode or not connecting, we are done. */
 			cfg_state.state = cfg_state_idle;
 		} else {
@@ -807,6 +803,7 @@ err_out:
 	return;
 }
 
+#if 0
 static const char *event_names[] = {
 	"WIFI_READY",
 	"SCAN_DONE",
@@ -865,6 +862,7 @@ void cgiWifiEventCb(system_event_t *event)
 		break;
 	}
 }
+#endif
 
 /* Set a new WiFi configuration. This function will save the current config *\
  * to cfg->saved, then compare it to the requested new configuration. If    *
@@ -912,12 +910,12 @@ static esp_err_t update_wifi(struct wifi_cfg_state *cfg, struct wifi_cfg *new)
 	}
 
 	if ((new->mode == WIFI_MODE_AP || new->mode == WIFI_MODE_APSTA) &&
-	    memcmp(&(cfg->new.ap), &(cfg->saved.ap), sizeof(cfg->new.ap))) {
+		memcmp(&(cfg->new.ap), &(cfg->saved.ap), sizeof(cfg->new.ap))) {
 		update = true;
 	}
 
 	if ((new->mode == WIFI_MODE_STA || new->mode == WIFI_MODE_APSTA) &&
-	    memcmp(&(cfg->new.sta), &(cfg->saved.sta), sizeof(cfg->new.sta))) {
+		memcmp(&(cfg->new.sta), &(cfg->saved.sta), sizeof(cfg->new.sta))) {
 		update = true;
 	}
 
@@ -1031,19 +1029,19 @@ CgiStatus cgiWiFiSetMode(HttpdConnData *connData)
 		/* Do not switch to STA mode without being connected to an AP. */
 		if (mode == WIFI_MODE_STA && !sta_connected()) {
 			ESP_LOGE(TAG,
-				 "[%s] No connection to AP, not switching to "
-				 "client-only mode.",
-				 __FUNCTION__);
+				"[%s] No connection to AP, not switching to "
+				"client-only mode.",
+				__FUNCTION__);
 			goto err_out;
 		}
 
 		cfg.mode = mode;
 
 		ESP_LOGI(TAG, "[%s] Switching to WiFi mode %s", __FUNCTION__,
-			 mode == WIFI_MODE_AP	   ? "SoftAP"
-			 : mode == WIFI_MODE_APSTA ? "STA+AP"
-			 : mode == WIFI_MODE_STA   ? "Client"
-						   : "Disabled");
+			mode == WIFI_MODE_AP      ? "SoftAP"
+			: mode == WIFI_MODE_APSTA ? "STA+AP"
+			: mode == WIFI_MODE_STA   ? "Client"
+									  : "Disabled");
 
 		result = update_wifi(&cfg_state, &cfg);
 		if (result != ESP_OK) {
@@ -1051,10 +1049,10 @@ CgiStatus cgiWiFiSetMode(HttpdConnData *connData)
 		}
 #else
 		ESP_LOGI(TAG, "[%s] Demo mode, not switching to WiFi mode %s", __FUNCTION__,
-			 mode == WIFI_MODE_AP	   ? "SoftAP"
-			 : mode == WIFI_MODE_APSTA ? "STA+AP"
-			 : mode == WIFI_MODE_STA   ? "Client"
-						   : "Disabled");
+			mode == WIFI_MODE_AP      ? "SoftAP"
+			: mode == WIFI_MODE_APSTA ? "STA+AP"
+			: mode == WIFI_MODE_STA   ? "Client"
+									  : "Disabled");
 #endif
 	}
 
@@ -1184,7 +1182,7 @@ CgiStatus cgiWiFiAPSettings(HttpdConnData *connData)
 			ESP_LOGI(TAG, "[%s] Setting ssid=%s", __FUNCTION__, ssid);
 			strlcpy((char *)cfg.ap.ap.ssid, ssid, sizeof(cfg.ap.ap.ssid));
 			cfg.ap.ap.ssid_len =
-			    0; // if ssid_len==0, check the SSID until there is a termination character; otherwise, set the SSID length according to softap_config.ssid_len.
+				0; // if ssid_len==0, check the SSID until there is a termination character; otherwise, set the SSID length according to softap_config.ssid_len.
 			ESP_LOGI(TAG, "[%s] Set ssid=%s", __FUNCTION__, cfg.ap.ap.ssid);
 		}
 
@@ -1204,57 +1202,6 @@ CgiStatus cgiWiFiAPSettings(HttpdConnData *connData)
 
 err_out:
 	httpdRedirect(connData, "working.html");
-	return HTTPD_CGI_DONE;
-}
-
-/* CGI returning the current state of the WiFi connection. */
-CgiStatus cgiWiFiConnStatus(HttpdConnData *connData)
-{
-	char buff[128];
-	tcpip_adapter_ip_info_t info;
-	esp_err_t result;
-
-	if (connData->isConnectionClosed) {
-		return HTTPD_CGI_DONE;
-	}
-
-	snprintf(buff, sizeof(buff) - 1, "{\n \"status\": \"fail\"\n }\n");
-
-	switch (cfg_state.state) {
-	case cfg_state_idle:
-		snprintf(buff, sizeof(buff) - 1, "{\n \"status\": \"idle\"\n }\n");
-		break;
-	case cfg_state_update:
-	case cfg_state_connecting:
-	case cfg_state_wps_start:
-	case cfg_state_wps_active:
-		snprintf(buff, sizeof(buff) - 1, "{\n \"status\": \"working\"\n }\n");
-		break;
-	case cfg_state_connected:
-		result = tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &info);
-		if (result != ESP_OK) {
-			ESP_LOGE(TAG, "[%s] Error fetching IP config.", __FUNCTION__);
-			goto err_out;
-		}
-		snprintf(buff, sizeof(buff) - 1, "{\n \"status\": \"success\",\n \"ip\": \"%s\" }\n",
-			 ip4addr_ntoa(&(info.ip)));
-		break;
-	case cfg_state_failed:
-	default:
-		break;
-	}
-
-	httpdStartResponse(connData, 200);
-	httpdHeader(connData, "Content-Type", "text/json");
-	httpdEndHeaders(connData);
-	httpdSend(connData, buff, -1);
-	return HTTPD_CGI_DONE;
-
-err_out:
-	ESP_LOGE(TAG, "[%s] Failed.", __FUNCTION__);
-	httpdStartResponse(connData, 500);
-	httpdEndHeaders(connData);
-
 	return HTTPD_CGI_DONE;
 }
 
@@ -1358,48 +1305,48 @@ CgiStatus tplWlan(HttpdConnData *connData, char *token, void **arg)
              * x minutes after switching to STA mode, otherwise the     *
             \* device will fall back to the previous configuration.     */
 			snprintf(buff, sizeof(buff) - 1,
-				 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to <b>AP+STA</b> "
-				 "mode</button> (Both AP and Client)</p>",
-				 WIFI_MODE_APSTA);
+				"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to <b>AP+STA</b> "
+				"mode</button> (Both AP and Client)</p>",
+				WIFI_MODE_APSTA);
 			break;
 		case WIFI_MODE_APSTA:
 			snprintf(buff, sizeof(buff) - 1,
-				 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
-				 "<b>AP</b> mode</button> (Access Point Only)</p>",
-				 WIFI_MODE_AP);
+				"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
+				"<b>AP</b> mode</button> (Access Point Only)</p>",
+				WIFI_MODE_AP);
 
 			/* Only offer switching to STA mode if we have a connection. */
 			if (sta_connected()) {
 				snprintf(buff + strlen(buff), sizeof(buff) - strlen(buff) - 1,
-					 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
-					 "<b>STA</b> mode</button> (Client Only)</p>",
-					 WIFI_MODE_STA);
+					"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
+					"<b>STA</b> mode</button> (Client Only)</p>",
+					WIFI_MODE_STA);
 			}
 			break;
 		case WIFI_MODE_STA:
 		default:
 			snprintf(buff, sizeof(buff) - 1,
-				 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
-				 "<b>AP</b> mode</button> (Access Point Only)</p>"
-				 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to <b>AP+STA</b> "
-				 "mode</button> (Both AP and Client)</p>",
-				 WIFI_MODE_AP, WIFI_MODE_APSTA);
+				"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to standalone "
+				"<b>AP</b> mode</button> (Access Point Only)</p>"
+				"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Go to <b>AP+STA</b> "
+				"mode</button> (Both AP and Client)</p>",
+				WIFI_MODE_AP, WIFI_MODE_APSTA);
 			break;
 		}
 
 		/* Always offer WPS. */
 		snprintf(buff + strlen(buff), sizeof(buff) - strlen(buff) - 1,
-			 "<p><button onclick=\"location.href='startwps.cgi'\">Connect to AP with <b>WPS</b></button> "
-			 "This will switch to AP+STA mode. You can switch to STA only mode "
-			 "after the client has connected.</p>");
+			"<p><button onclick=\"location.href='startwps.cgi'\">Connect to AP with <b>WPS</b></button> "
+			"This will switch to AP+STA mode. You can switch to STA only mode "
+			"after the client has connected.</p>");
 
 		/* Disable WiFi.  (only available if Eth connected?) */
 		if (1) { //eth_connected()){
 			snprintf(buff + strlen(buff), sizeof(buff) - strlen(buff) - 1,
-				 "<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Disable WiFi</button> "
-				 "This option may leave you unable to connect!"
-				 " (unless via Ethernet.) </p>",
-				 WIFI_MODE_NULL);
+				"<p><button onclick=\"location.href='setmode.cgi?mode=%d'\">Disable WiFi</button> "
+				"This option may leave you unable to connect!"
+				" (unless via Ethernet.) </p>",
+				WIFI_MODE_NULL);
 		}
 
 	} else if (!strcmp(token, "StaWarn")) {
@@ -1421,8 +1368,8 @@ CgiStatus tplWlan(HttpdConnData *connData, char *token, void **arg)
 		case WIFI_MODE_AP:
 		default:
 			snprintf(buff, sizeof(buff) - 1,
-				 "Warning: STA Disabled! "
-				 "<b>Can't scan in this mode.</b>");
+				"Warning: STA Disabled! "
+				"<b>Can't scan in this mode.</b>");
 			break;
 		}
 	} else if (!strcmp(token, "ApWarn")) {
@@ -1437,8 +1384,7 @@ CgiStatus tplWlan(HttpdConnData *connData, char *token, void **arg)
 			break;
 		case WIFI_MODE_STA:
 		default:
-			snprintf(buff, sizeof(buff) - 1,
-				 "Warning: AP Disabled!  Save AP Settings will have no effect.");
+			snprintf(buff, sizeof(buff) - 1, "Warning: AP Disabled!  Save AP Settings will have no effect.");
 			break;
 		}
 	}

@@ -3,6 +3,7 @@
 #include "httpd.h"
 
 #ifdef FREERTOS
+#include "freertos/FreeRTOS.h"
 #ifdef ESP32
 #include "lwip/sockets.h"
 #else
@@ -68,7 +69,7 @@ typedef struct
 #ifdef linux
     pthread_mutex_t httpdMux;
 #else
-    xQueueHandle httpdMux;
+    QueueHandle_t httpdMux;
 #endif
 
 #ifdef CONFIG_ESPHTTPD_SSL_SUPPORT

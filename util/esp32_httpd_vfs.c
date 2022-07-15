@@ -17,16 +17,16 @@ Connector to let httpd use the vfs filesystem to serve the files in it.
 #include "httpd-platform.h"
 #include "cJSON.h"
 
-#define FILE_CHUNK_LEN (1024)
+#define FILE_CHUNK_LEN      (1024)
 #define MAX_FILENAME_LENGTH (1024)
 
-#define ESPFS_MAGIC (0x73665345)
+#define ESPFS_MAGIC     (0x73665345)
 #define ESPFS_FLAG_GZIP (1 << 1)
 
 // If the client does not advertise that he accepts GZIP send following warning message (telnet users for e.g.)
 static const char *gzipNonSupportedMessage = "HTTP/1.0 501 Not implemented\r\nServer: esp8266-httpd/" HTTPDVER
-					     "\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: "
-					     "52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
+											 "\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: "
+											 "52\r\n\r\nYour browser does not accept gzip-compressed data.\r\n";
 
 static void cgiJsonResponseCommon(HttpdConnData *connData, cJSON *jsroot)
 {
@@ -36,9 +36,8 @@ static void cgiJsonResponseCommon(HttpdConnData *connData, cJSON *jsroot)
 	//We want the header to start with HTTP code 200, which means the document is found.
 	httpdStartResponse(connData, 200);
 	httpdHeader(connData, "Cache-Control", "no-store, must-revalidate, no-cache, max-age=0");
-	httpdHeader(
-	    connData, "Expires",
-	    "Mon, 01 Jan 1990 00:00:00 GMT"); //  This one might be redundant, since modern browsers look for "Cache-Control".
+	httpdHeader(connData, "Expires",
+		"Mon, 01 Jan 1990 00:00:00 GMT"); //  This one might be redundant, since modern browsers look for "Cache-Control".
 	httpdHeader(connData, "Content-Type", "application/json; charset=utf-8"); //We are going to send some JSON.
 	httpdEndHeaders(connData);
 	json_string = cJSON_Print(jsroot);
@@ -254,6 +253,8 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsTemplate(HttpdConnData *connData)
 	}
 
 	if (tpd == NULL) {
+		getFilepath(connData, filename, sizeof(filename));
+
 		//First call to this cgi. Open the file so we can read it.
 		struct stat s;
 		if (stat(filename, &s) != 0 || S_ISDIR(s.st_mode)) {
@@ -264,8 +265,6 @@ CgiStatus ICACHE_FLASH_ATTR cgiEspVfsTemplate(HttpdConnData *connData)
 			ESP_LOGE(__func__, "Trying to use gzip-compressed file %s as template!", connData->url);
 			return HTTPD_CGI_NOTFOUND;
 		}
-
-		getFilepath(connData, filename, sizeof(filename));
 
 		tpd = (TplData *)malloc(sizeof(TplData));
 		if (tpd == NULL)
@@ -381,7 +380,7 @@ static esp_err_t createMissingDirectories(char *fullpath)
 		{
 			struct stat sb;
 			char slash = string[i];
-			string[i] = '\0';	      // replace slash with null terminator temporarily
+			string[i] = '\0';             // replace slash with null terminator temporarily
 			if (stat(string, &sb) != 0) { // stat() will tell us if it is a file or directory or neither.
 				//printf("stat failed.\n");
 				if (errno == ENOENT) /* No such file or directory */
@@ -405,7 +404,12 @@ static esp_err_t createMissingDirectories(char *fullpath)
 }
 
 typedef struct {
-	enum { UPSTATE_START, UPSTATE_WRITE, UPSTATE_DONE, UPSTATE_ERR } state;
+	enum {
+		UPSTATE_START,
+		UPSTATE_WRITE,
+		UPSTATE_DONE,
+		UPSTATE_ERR
+	} state;
 	FILE *file;
 	char filename[MAX_FILENAME_LENGTH + 1];
 	int b_written;
